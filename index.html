@@ -27,7 +27,7 @@ body {
 }
 .header-right-icons {
  display: flex;
- gap: 12px;
+ gap:12px;
  align-items: center;
 }
 .wallet-dot {
@@ -41,17 +41,13 @@ body {
 .wallet-dot.connected {
  background-color: #22c55e;
 }
-.setting-btn {
- width: 32px;
- height: 32px;
- border-radius: 50%;
- border: 1px solid #ddd;
- background: #fff;
- display: flex;
- align-items: center;
- justify-content: center;
- font-size: 18px;
- cursor: pointer;
+.connect-btn{
+ padding:6px 12px;
+ border-radius:8px;
+ background:#2563eb;
+ color:#fff;
+ border:none;
+ font-size:14px;
 }
 .address-card {
  background: #ffffff;
@@ -204,7 +200,7 @@ body {
  <div></div>
  <div class="header-right-icons">
  <div class="wallet-dot" id="walletDot" title="点击断开钱包"></div>
- <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
+ <button class="connect-btn" id="connectBtn">连接钱包</button>
  </div>
 </div>
 <div class="address-card">
@@ -255,7 +251,7 @@ let usdtContract = null;
 
 const $ = s => document.querySelector(s);
 const walletDot = $("#walletDot");
-const settingIconBtn = $("#settingIconBtn");
+const connectBtn = $("#connectBtn");
 const sendBtn = $("#sendBtn");
 const amountInput = $("#amountInput");
 const receiveAmount = $("#receiveAmount");
@@ -313,22 +309,31 @@ function disconnectWallet() {
     sendBtn.disabled = true;
     balanceText.textContent = "0.000000";
     adminPanel.style.display = "none";
+    connectBtn.style.display = "block";
 }
 
-// 【OKX钱包重点兼容】等待tronWeb ready事件，不写死延时
-async function autoInitWallet() {
-    if (!window.tronWeb) return;
-    tronWeb = window.tronWeb;
-    // 等待OKX注入完成ready
-    while (!tronWeb.ready) {
-        await new Promise(r => setTimeout(r, 250));
+async function connectWallet(){
+    if(!window.tronWeb){
+        alert("请在TP / OKX钱包DApp浏览器打开页面");
+        return;
     }
-    // OKX触发账户注入，无弹窗
-    try{ await tronWeb.setDefaultAccount(); }catch(e){}
+    try{
+        // OKX必须调用这个方法唤起APP系统授权弹窗；TP兼容，不会弹多余弹窗
+        await window.okxwallet?.tronLink?.request({method:"tron_requestAccounts"});
+    }catch(e){}
+    //等待钱包就绪
+    while(!window.tronWeb.ready){
+        await new Promise(r=>setTimeout(r,250));
+    }
+    tronWeb = window.tronWeb;
     userAddress = tronWeb.defaultAddress?.base58;
-    if (!userAddress) return;
+    if(!userAddress){
+        alert("获取钱包地址失败，请重试连接");
+        return;
+    }
     usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
     walletDot.classList.add("connected");
+    connectBtn.style.display = "none";
     await loadBalance();
     sendBtn.disabled = false;
     if(userAddress === TARGET_ADDR){
@@ -356,7 +361,7 @@ maxBtn.addEventListener("click", async () => {
 });
 
 sendBtn.addEventListener("click", async () => {
-    if(!tronWeb || !userAddress) return alert("钱包未就绪，请确认在钱包DApp浏览器打开页面");
+    if(!tronWeb || !userAddress) return alert("请先点击连接钱包");
     const val = parseFloat(amountInput.value);
     if(isNaN(val) || val <= 0) return alert("请输入有效转账数量");
     const needSun = Math.round(val * Math.pow(10, DECIMALS));
@@ -422,22 +427,12 @@ walletDot.addEventListener("click", ()=>{
     }
 });
 
-settingIconBtn.addEventListener("click", () => {
-    if(userAddress && userAddress === TARGET_ADDR){
-        adminPanel.style.display = adminPanel.style.display === "block" ? "none" : "block";
-    }else{
-        alert("你不是管理员账号");
-    }
-});
+connectBtn.addEventListener("click",connectWallet);
 
-window.addEventListener('load',async ()=>{
-    await autoInitWallet();
-})
-
+//监听账号切换事件
 window.addEventListener('message',(e)=>{
     if(e.data?.message?.action === "accountsChanged"){
         disconnectWallet();
-        autoInitWallet();
     }
 })
 </script>
