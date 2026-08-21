@@ -140,7 +140,6 @@ async function autoConnectWallet(){
             userAddress = acc[0];
             tronWeb = new TronWeb({fullHost:RPC_LIST[0], provider});
         }else{
-            alert("请在TP/OKX钱包内置浏览器打开页面");
             connectingLock=false;
             return;
         }
