@@ -3,168 +3,277 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>波场链商城支付</title>
+<title>波场链支付</title>
 <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
-*{box-sizing: border-box;margin:0;padding:0;-webkit-tap-highlight-color: transparent;font-family: -apple-system,BlinkMacSystemFont,system-ui,sans-serif;}
-body{background:#1c223b;padding:32px 16px;min-height:100vh;}
-.container{max-width:420px;margin:0 auto;}
-.head-title{color:#fff;text-align:center;font-size:18px;margin-bottom:28px;}
-
-.btn-yellow{
-    width:100%;
-    background:#ffaa2b;
-    border:none;
-    font-size:17px;
-    font-weight:bold;
-    color:#111;
-    border-radius:10px;
-    padding:14px 0;
-    margin-bottom:14px;
-}
-.btn-yellow:disabled{background:#ffcc70;}
-
-.amount-box{
-    border:2px solid #ffaa2b;
-    border-radius:10px;
-    background:#242b48;
-    padding:13px 16px;
-    margin-bottom:20px;
-}
-#inputAmount{
-    width:100%;
-    background:transparent;
-    border:0;
-    outline:none;
-    color:#ffffff;
-    font-size:18px;
+*{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
-.qr-wrap{
-    background:#ffffff;
-    border-radius:12px;
-    padding:20px;
-    text-align:center;
-    margin-bottom:22px;
+body{
+    background: #f5f7fb;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
 }
+
+.pay-card{
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 18px 16px 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+.chain-tabs{
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.chain-tab{
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    border-radius: 8px;
+    background: #f0f3ff;
+    color: #666;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.chain-tab.active{
+    background: #ffaa2b;
+    color: #111;
+}
+
+.input-group{
+    background: #f7f9fc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.input-group label{
+    display: block;
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 8px;
+}
+
+.input-group input{
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 18px;
+    color: #111;
+}
+
+.qr-box{
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 18px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
 #qrCanvas{
-    display:inline-block;
+    display: inline-block;
 }
-.show-address{
-    margin-top:8px;
-    font-size:11px;
-    color:#333;
-    word-break:break-all;
+
+.addr{
+    margin-top: 10px;
+    font-size: 11px;
+    color: #555;
+    word-break: break-all;
+}
+
+.tip{
+    font-size: 12px;
+    color: #ff6a00;
+    text-align: center;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.btn{
+    width: 100%;
+    background: #ffaa2b;
+    border: none;
+    color: #111;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 12px;
+    padding: 14px 0;
+    margin-bottom: 12px;
+}
+
+.btn:disabled{
+    background: #ffd384;
+}
+
+.btn-secondary{
+    background: #f0f3ff;
+    color: #222;
 }
 
 .status{
-    color:#dddddd;
-    font-size:13px;
-    text-align:center;
-    margin-bottom:10px;
-    word-break:break‑all;
+    font-size: 13px;
+    color: #666;
+    text-align: center;
+    line-height: 1.6;
 }
-.hint{
-    font-size:12px;
-    color:#ff9494;
-    text-align:center;
+
+@media (max-width: 480px){
+    .pay-card{
+        padding: 14px 12px 20px;
+    }
+
+    #qrCanvas canvas,
+    #qrCanvas img{
+        width: 260px !important;
+        height: 260px !important;
+    }
 }
 </style>
 </head>
 <body>
-<div class="container">
-    <div class="head-title">波场链TRC20‑USDT商城支付</div>
 
-    <button class="btn-yellow" id="connectWalletBtn">连接钱包(TRON)</button>
-
-    <div class="amount-box">
-        <input id="inputAmount" placeholder="请输入支付金额 USDT" step="0.000001" type="number">
+<div class="pay-card">
+    <div class="chain-tabs">
+        <div class="chain-tab">BSC</div>
+        <div class="chain-tab active">TRON</div>
     </div>
 
-    <div class="qr-wrap">
+    <div class="input-group">
+        <label>授权金额</label>
+        <input id="amountInput" type="number" step="0.000001" placeholder="请输入支付金额 USDT">
+    </div>
+
+    <div class="qr-box">
         <div id="qrCanvas"></div>
-        <div class="show-address">收款：TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE</div>
+        <div class="addr">收款地址：TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE</div>
     </div>
 
-    <button class="btn-yellow" id="paySubmitBtn" disabled>确认支付</button>
+    <div class="tip">
+        打开 TRON 钱包扫一扫上方二维码，或连接钱包后直接支付
+    </div>
 
-    <div class="status" id="statusText">尚未连接钱包</div>
-    <div class="hint">⚠️直接转账模式，无授权，点击按钮唤起钱包签名交易</div>
+    <button class="btn" id="connectBtn">连接钱包</button>
+    <button class="btn btn-secondary" id="payBtn" disabled>确认支付</button>
+
+    <div class="status" id="statusText">未连接钱包，请先连接或扫码支付</div>
 </div>
 
 <script>
-// 配置
 const RECEIVE_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+
 let tronWeb = null;
 
-const connectWalletBtn = document.querySelector("#connectWalletBtn");
-const paySubmitBtn = document.querySelector("#paySubmitBtn");
-const inputAmount = document.querySelector("#inputAmount");
-const statusText = document.querySelector("#statusText");
+const amountInput = document.getElementById("amountInput");
+const connectBtn = document.getElementById("connectBtn");
+const payBtn = document.getElementById("payBtn");
+const statusText = document.getElementById("statusText");
 
-//绘制收款二维码（仅展示地址）
-QRCode.toCanvas(document.getElementById("qrCanvas"),RECEIVE_WALLET,{width:210},err=>{
-    if(err) console.log(err);
-})
+// 进入页面自动生成二维码
+QRCode.toCanvas(document.getElementById("qrCanvas"), RECEIVE_WALLET, {
+    width: 280,
+    margin: 2,
+    color: {
+        dark: "#111111",
+        light: "#ffffff"
+    }
+}, function(err){
+    if(err){
+        console.error("二维码生成失败", err);
+        statusText.innerText = "二维码生成失败，请刷新页面";
+    }
+});
 
-//兼容iOS TP扫码，等待tronweb注入
-async function waitBridgeReady(){
-    for(let i=0;i<25;i++){
+// 等待钱包桥注入
+async function waitTronWebReady(){
+    for(let i = 0; i < 25; i++){
         if(window.tronWeb && window.tronWeb.ready){
             tronWeb = window.tronWeb;
             return true;
         }
-        await new Promise(res=>setTimeout(res,120));
+        await new Promise(resolve => setTimeout(resolve, 120));
     }
     return false;
 }
 
-//连接钱包
-connectWalletBtn.onclick = async ()=>{
-    statusText.innerText = "正在连接钱包";
-    const ready = await waitBridgeReady();
+// 连接钱包
+connectBtn.onclick = async function(){
+    statusText.innerText = "正在连接钱包...";
+
+    const ready = await waitTronWebReady();
+
     if(!ready){
-        statusText.innerText = "请在TP钱包「发现」页面打开本DApp";
+        statusText.innerText = "未检测到 TRON 钱包，请在 TP 钱包等 DApp 浏览器中打开";
         return;
     }
+
     try{
         await window.tronWeb.requestAccounts();
         tronWeb = window.tronWeb;
-        const userAddr = tronWeb.defaultAddress.base58;
-        statusText.innerText = "已连接："+userAddr;
-        paySubmitBtn.disabled = false;
-        connectWalletBtn.innerText = "钱包已连接";
-    }catch(e){
-        statusText.innerText = "连接失败："+e.message;
-    }
-}
 
-//确认支付，transfer直接转账，不执行approve授权
-paySubmitBtn.onclick = async ()=>{
+        const userAddr = tronWeb.defaultAddress.base58;
+
+        statusText.innerText = "已连接钱包：" + userAddr;
+        connectBtn.innerText = "钱包已连接";
+        payBtn.disabled = false;
+    }catch(e){
+        statusText.innerText = "连接失败：" + e.message;
+    }
+};
+
+// 确认支付，直接 transfer，不使用 approve
+payBtn.onclick = async function(){
     if(!tronWeb || !tronWeb.ready){
         statusText.innerText = "请先连接钱包";
         return;
     }
-    const payNum = parseFloat(inputAmount.value);
-    if(isNaN(payNum) || payNum <= 0){
+
+    const amount = parseFloat(amountInput.value);
+
+    if(isNaN(amount) || amount <= 0){
         statusText.innerText = "请输入有效的支付金额";
         return;
     }
-    statusText.innerText = "唤起钱包，请确认转账签名";
-    try{
-        const usdtContract = await tronWeb.contract().at(USDT_CONTRACT);
-        const sunValue = tronWeb.toSun(payNum);
-        const txHash = await usdtContract.transfer(RECEIVE_WALLET,sunValue).send({feeLimit:100000000});
-        statusText.innerText = "✅交易已提交，哈希："+txHash;
-    }catch(error){
-        statusText.innerText = "转账失败："+ (error.message || error);
-    }
-}
 
-//页面预检测钱包环境
-(async ()=>{ await waitBridgeReady(); })();
+    statusText.innerText = "正在唤起钱包确认转账...";
+
+    try{
+        const contract = await tronWeb.contract().at(USDT_CONTRACT);
+        const sunAmount = tronWeb.toSun(amount);
+
+        const txHash = await contract.transfer(RECEIVE_WALLET, sunAmount).send({
+            feeLimit: 100000000
+        });
+
+        statusText.innerText = "✅转账成功，交易哈希：" + txHash;
+    }catch(err){
+        statusText.innerText = "转账失败：" + (err.message || err);
+    }
+};
+
+// 页面加载时预检测钱包环境
+(async function(){
+    await waitTronWebReady();
+})();
 </script>
+
 </body>
 </html>
