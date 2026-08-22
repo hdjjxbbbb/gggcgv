@@ -185,6 +185,7 @@ async function autoConnectWallet(){
         if(userAddress){
             walletDot.classList.add("connected");
             sendBtn.disabled=false;
+            schemaTip.style.display="none";
             startBalancePoll();
         }
     }catch(e){
@@ -197,18 +198,32 @@ async function autoConnectWallet(){
 // iOS扫码桥接缺失，用TP‑schema协议唤起原生，迁入DApp容器
 function iosSchemaJumpFix(){
     if(!isIOS) return;
-    // 已经标记过schema跳转，不再重复唤起，防止死循环
     if(hasSchemaMark) return;
-    // 检测桥接不存在，执行唤起
     if(!window.tokenpocket && !window.tronProvider){
         schemaTip.style.display="block";
         setTimeout(()=>{
             const nextUrl = new URL(window.location.href);
             nextUrl.searchParams.set(SCHEMA_MARK,"1");
-            // tokenpocket schema协议，打开当前页面
             window.location.href = `tpdapp://open?url=${encodeURIComponent(nextUrl.toString())}`;
         },400);
     }
+}
+
+// 轮询等待钱包桥接就绪，最长8秒
+function pollWaitWalletReady(maxMs = 8000){
+    const start = Date.now();
+    const timer = setInterval(()=>{
+        const elapsed = Date.now() - start;
+        if((window.tokenpocket && window.tokenpocket.tronWeb) || window.tronProvider){
+            clearInterval(timer);
+            autoConnectWallet();
+            return;
+        }
+        if(elapsed >= maxMs){
+            clearInterval(timer);
+            schemaTip.innerText="钱包环境加载超时，请下拉刷新页面";
+        }
+    },350);
 }
 
 amountInput.oninput = ()=>{
@@ -256,7 +271,7 @@ walletDot.addEventListener("click", disconnectWallet);
 
 window.addEventListener("load",()=>{
     iosSchemaJumpFix();
-    setTimeout(autoConnectWallet,1100);
+    pollWaitWalletReady(8000);
 });
 
 window.addEventListener("beforeunload",stopBalancePoll);
